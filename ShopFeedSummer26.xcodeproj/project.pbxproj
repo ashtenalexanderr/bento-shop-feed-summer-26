@@ -87,6 +87,7 @@
 		6B769D7CE062065724052DB4 /* SearchResultCount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E66AF39E36586723035423 /* SearchResultCount.swift */; };
 		6B959753F1BE4FD9E41B103C /* StoryDetailPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC531098602EBF12CF58A9 /* StoryDetailPage.swift */; };
 		6B962694A2D5A76349334EE4 /* DeliveryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D0AC7FA7992C3C84A593D9 /* DeliveryCard.swift */; };
+		7E1A2B3C4D5E6F7081920A1B /* HomeUtilityPrototypeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2B3C4D5E6F708192A0B1C2 /* HomeUtilityPrototypeCards.swift */; };
 		701D9E180841F535074E77E3 /* GTStandard-LSemibold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 70B6EA62F63A7A6F39EC015E /* GTStandard-LSemibold.otf */; };
 		73A8C5E857F8C8D23B0AB657 /* CartPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D3502071F386F04F63B93A6 /* CartPage.swift */; };
 		742ADA927F28DE885852A247 /* Shopify Sans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = EAC89D255BADA19142CCCFBF /* Shopify Sans-Regular.otf */; };
@@ -275,6 +276,7 @@
 		902A5F8C87482DAA5084A6B9 /* DossierStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DossierStore.swift; sourceTree = "<group>"; };
 		93C7B3807AD8D7156AF55F78 /* SampleMerchant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleMerchant.swift; sourceTree = "<group>"; };
 		93D0AC7FA7992C3C84A593D9 /* DeliveryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryCard.swift; sourceTree = "<group>"; };
+		8F2B3C4D5E6F708192A0B1C2 /* HomeUtilityPrototypeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeUtilityPrototypeCards.swift; sourceTree = "<group>"; };
 		95D64725EFF88C7418AC33BE /* SearchHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchHeader.swift; sourceTree = "<group>"; };
 		96B6534412DD17581C329BC2 /* FeedNavigationStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedNavigationStyle.swift; sourceTree = "<group>"; };
 		9960535F62ED2B6001EC525D /* Shopify Sans-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Shopify Sans-Medium.otf"; sourceTree = "<group>"; };
@@ -584,6 +586,7 @@
 				2ACD1E2168C3779609CA48BE /* CachedAsyncImage.swift */,
 				5459CA6FC9ADF5F66FEA511C /* CategoryTile.swift */,
 				93D0AC7FA7992C3C84A593D9 /* DeliveryCard.swift */,
+				8F2B3C4D5E6F708192A0B1C2 /* HomeUtilityPrototypeCards.swift */,
 				A21666666666666666666666 /* UtilityBeltCustomization.swift */,
 				B9D284B4531C1094FD7A9792 /* EvergreenDestinationFeeds.swift */,
 				7F39B6F46EBC3D657496BF6D /* FloatingBackButton.swift */,
@@ -906,6 +909,7 @@
 				0EC6F69EB7B7D14036157A35 /* DeepDivePage.swift in Sources */,
 				CD57B8EA0EECF704917FD500 /* DeliveriesPage.swift in Sources */,
 				6B962694A2D5A76349334EE4 /* DeliveryCard.swift in Sources */,
+				7E1A2B3C4D5E6F7081920A1B /* HomeUtilityPrototypeCards.swift in Sources */,
 				A11666666666666666666666 /* UtilityBeltCustomization.swift in Sources */,
 				69E010471B7070B1F61532D9 /* DeliveryDetailPage.swift in Sources */,
 				AD150EFC21B725F27F3546F5 /* DossierStore.swift in Sources */,
