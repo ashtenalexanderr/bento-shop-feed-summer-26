@@ -395,6 +395,8 @@ struct CreateFeedSheet: View {
 }
 
 struct FeedManagerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
     @Bindable var store: CustomFeedStore
     let buyerID: String
     let authoredTopics: [BuyerFeedTopic]
@@ -409,11 +411,14 @@ struct FeedManagerSheet: View {
     }
 
     private var sheetHeight: CGFloat {
-        min(520, max(177, 125 + CGFloat(feeds.count) * 52))
+        min(620, max(260, 170 + CGFloat(feeds.count) * 52))
     }
 
     var body: some View {
-        List {
+        VStack(spacing: 0) {
+            managerHeader
+
+            List {
             ForEach(feeds) { feed in
                 feedRow(feed)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 20))
@@ -439,36 +444,35 @@ struct FeedManagerSheet: View {
                     }
             }
 
-            Button {
-                HapticFeedback.light.fire()
-                onCreateNew()
-            } label: {
-                HStack(spacing: GravitySpacing.space10) {
-                    Circle()
-                        .fill(GravityColors.bgFillSecondary)
-                        .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
-
-                    HStack(spacing: GravitySpacing.space4) {
-                        Text("Create new")
-                        GravityIcon.shopLogo.image
+                Button {
+                    HapticFeedback.light.fire()
+                    onCreateNew()
+                } label: {
+                    HStack(spacing: GravitySpacing.space10) {
+                        Image("icon-plus-sign-small", bundle: .main)
+                            .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: GravitySpacing.space20, height: GravitySpacing.space20)
-                        Text("feed")
+                            .frame(width: GravitySpacing.space16, height: GravitySpacing.space16)
+                            .foregroundStyle(GravityColors.textBrand)
+                            .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
+                            .background(Color(hex: "#EFEAFF"), in: Circle())
+
+                        Text("Create new feed")
+                            .gravityTextStyle(GravityTypography.subtitle)
+                            .foregroundStyle(GravityColors.textBrand)
                     }
-                    .gravityTextStyle(GravityTypography.subtitle)
-                    .foregroundStyle(GravityColors.textBrand)
+                    .frame(maxWidth: .infinity, minHeight: GravitySpacing.space36, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, minHeight: GravitySpacing.space36, alignment: .leading)
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
             }
-            .buttonStyle(.plain)
-            .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .contentMargins(.top, 0, for: .scrollContent)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .contentMargins(.top, GravitySpacing.space44, for: .scrollContent)
         .background(GravityColors.bgFill)
         .alert(
             "Delete feed?",
@@ -501,20 +505,46 @@ struct FeedManagerSheet: View {
         .presentationBackground(GravityColors.bgFill)
     }
 
+    private var managerHeader: some View {
+        HStack(alignment: .center, spacing: GravitySpacing.space12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Manage feeds")
+                    .gravityTextStyle(GravityTypography.headerBold)
+                    .foregroundStyle(GravityColors.text)
+                Text("Hold and drag to reorder")
+                    .gravityTextStyle(GravityTypography.caption)
+                    .foregroundStyle(GravityColors.textSecondary)
+            }
+
+            Spacer()
+
+            Button {
+                dismiss()
+            } label: {
+                GravityIcon.cross.image
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: GravitySpacing.space16, height: GravitySpacing.space16)
+                    .foregroundStyle(GravityColors.text)
+                    .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
+                    .background(GravityColors.bgFillSecondary, in: Circle())
+            }
+            .buttonStyle(PressScaleButtonStyle())
+            .accessibilityLabel("Close feed manager")
+        }
+        .padding(.horizontal, GravitySpacing.space20)
+        .padding(.top, GravitySpacing.space20)
+        .padding(.bottom, GravitySpacing.space8)
+    }
+
     private func feedRow(_ feed: BuyerFeedTopic) -> some View {
         HStack(spacing: GravitySpacing.space10) {
-            HStack(spacing: GravitySpacing.space4) {
-                Text("⠿")
-                    .font(.system(size: 10, weight: .regular, design: .rounded))
-                    .foregroundStyle(GravityColors.text.opacity(0.20))
-                    .frame(width: GravitySpacing.space16, height: GravitySpacing.space16)
-                    .contentShape(Rectangle().inset(by: -12))
-                    .draggable(feed.id)
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(GravityColors.textTertiary)
+                .frame(width: GravitySpacing.space20, height: GravitySpacing.space36)
 
-                Circle()
-                    .fill(GravityColors.bgFillSecondary)
-                    .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
-            }
+            feedBadge(feed)
 
             Text(feed.label)
                 .gravityTextStyle(GravityTypography.subtitle)
@@ -524,8 +554,45 @@ struct FeedManagerSheet: View {
         }
         .frame(minHeight: GravitySpacing.space36)
         .contentShape(Rectangle())
+        .draggable(feed.id)
     }
 
+    private func feedBadge(_ feed: BuyerFeedTopic) -> some View {
+        let treatment = feedBadgeTreatment(for: feed)
+        return Image(systemName: treatment.symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(treatment.foreground)
+            .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
+            .background(treatment.background, in: Circle())
+    }
+
+    private func feedBadgeTreatment(
+        for feed: BuyerFeedTopic
+    ) -> (symbol: String, foreground: Color, background: Color) {
+        let value = "\(feed.id) \(feed.label)".lowercased()
+        if value.contains("hat") || value.contains("cap") {
+            return ("baseball.cap.fill", Color(hex: "#6A4330"), Color(hex: "#EEE0D5"))
+        }
+        if value.contains("living") || value.contains("home") || value.contains("design") {
+            return ("sofa.fill", Color(hex: "#405846"), Color(hex: "#DDE8DF"))
+        }
+        if value.contains("style") || value.contains("essential") {
+            return ("tshirt.fill", Color(hex: "#5C4665"), Color(hex: "#E9DFED"))
+        }
+        if value.contains("wellness") || value.contains("training") || value.contains("skin") {
+            return ("heart.fill", Color(hex: "#864D52"), Color(hex: "#F1DFE0"))
+        }
+        if value.contains("food") || value.contains("coffee") || value.contains("morning") {
+            return ("cup.and.saucer.fill", Color(hex: "#79562E"), Color(hex: "#F2E4CE"))
+        }
+        if value.contains("outdoor") || value.contains("bird") || value.contains("trail") {
+            return ("mountain.2.fill", Color(hex: "#466044"), Color(hex: "#DCE7D7"))
+        }
+        if value.contains("tech") || value.contains("sim") {
+            return ("display", Color(hex: "#405A70"), Color(hex: "#DEE8EF"))
+        }
+        return ("sparkles", Color(hex: "#5433EB"), Color(hex: "#EFEAFF"))
+    }
 }
 
 extension HomePage {
