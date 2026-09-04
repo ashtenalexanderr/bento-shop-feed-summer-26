@@ -1,11 +1,11 @@
 # Codex handoff
 
-Updated: 2026-09-03
+Updated: 2026-09-04
 
 ## Repository state
 
 - Repository: `/Users/lukedupont/bento-shop-feed-summer-26`
-- Branch: `luke/feed-topic-polish`
+- Branch: `main`
 - Handoff remote: `public` (`lukerenedupont/bento-shop-feed-summer-26`)
 - Use the latest commit on this branch as the handoff baseline.
 
@@ -64,6 +64,14 @@ cards, and merchant-authored posts; enabled Worlds remain separately managed.
   and followed content, distributes posts, prioritizes Worlds, applies each
   feed’s composition settings, inserts campaigns, reports available card-type
   counts, and memoizes the resulting render plan.
+- Shopper-created feeds now persist their entered phrase as `customIntent`
+  instead of copying placeholder For You story IDs. `CustomFeedRecommendationEngine`
+  searches every product in the merged global merchant catalog, requires an
+  intent match, then uses the selected buyer's authored products, merchant
+  affinity, followed shops, and available shopper signals to rank those
+  matches. It emits deterministic catalog-backed `FeedStory` cards; generated
+  stories travel through `HomeRoute.customStory` so their detail pages retain
+  the exact assortment even though they are not in the authored catalog.
 - `WorldDomain.swift` owns World identity, context, lifetime, session state, and
   preference persistence. Parent/child relationships remain separate from
   identity.
@@ -232,10 +240,9 @@ xcodebuild -project ShopFeedSummer26.xcodeproj \
 New Swift files need `xcodegen generate` before they reach the target.
 
 The clean simulator build, personalized-feed validation, product-budget
-validation, and `git diff --check` pass. The debug app product is
-approximately `186864 KB` against the enforced `188416 KB` budget — roughly
-1.5 MB of headroom, so weigh any new bundled media against it. Existing
-unrelated Swift concurrency warnings may remain.
+validation, and `git diff --check` pass. The debug app product is approximately
+`184164 KB` against the enforced `184320 KB` budget, so bundle headroom remains
+very narrow. Existing unrelated Swift concurrency warnings may remain.
 
 Driving the simulator for visual checks: the device screen is the first
 `group` of the Simulator window, so its on-screen rect comes from

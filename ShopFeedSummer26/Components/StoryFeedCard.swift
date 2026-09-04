@@ -215,7 +215,7 @@ struct StoryFeedCard: View {
     private var productAssortment: [ResolvedStoryProduct] {
         // Hypothesis shelves are exact authored assortments. Do not pad them
         // with products from another shelf just to fill a larger card layout.
-        if story.id.hasPrefix("shelf-") {
+        if story.id.hasPrefix("shelf-") || story.id.hasPrefix("custom-feed-") {
             return items
         }
 

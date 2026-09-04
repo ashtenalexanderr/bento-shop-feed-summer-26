@@ -25,6 +25,8 @@ enum HomeFeedPlanner {
     private struct Key: Hashable {
         let buyerID: String
         let topicID: String
+        let topicLabel: String
+        let customIntent: String?
         let storyIDs: [String]
         let catalogVersion: Int
         let catalogStoryIDs: [String]
@@ -42,6 +44,8 @@ enum HomeFeedPlanner {
         let key = Key(
             buyerID: input.buyer.id,
             topicID: input.topic.id,
+            topicLabel: input.topic.label,
+            customIntent: input.topic.customIntent,
             storyIDs: input.topic.storyIDs,
             catalogVersion: input.catalog.version,
             catalogStoryIDs: input.catalog.stories.map(\.id),
@@ -93,6 +97,16 @@ enum HomeFeedPlanner {
     }
 
     private static func stories(for input: Input) -> [FeedStory] {
+        if let intent = input.topic.customIntent {
+            return CustomFeedRecommendationEngine.stories(
+                intent: intent,
+                buyer: input.buyer,
+                catalog: input.catalog,
+                merchants: input.merchants,
+                followedMerchants: input.followedMerchants
+            )
+        }
+
         let baseAuthored = authoredStories(topic: input.topic, catalog: input.catalog)
         let authored = WorldPrototypeCatalog.feedStories(
             from: baseAuthored,
@@ -198,5 +212,326 @@ enum HomeFeedPlanner {
         return candidates.filter {
             merchantNames.contains(FeedMerchantIdentity.normalizedName($0.merchant.name))
         }
+    }
+}
+
+/// Resolves shopper-authored feed intent against the complete merchant
+/// snapshot. Intent relevance is the hard gate; buyer history and followed
+/// shops only rank relevant products, so personalization cannot turn a Hats
+/// feed into a generic For You feed.
+@MainActor
+enum CustomFeedRecommendationEngine {
+    private struct Candidate {
+        let merchant: SampleMerchant
+        let product: SampleMerchant.Product
+        let relevance: Int
+        let affinity: Int
+    }
+
+    private static let ignoredTerms: Set<String> = [
+        "a", "an", "and", "for", "feed", "find", "i", "like", "me", "my",
+        "of", "on", "please", "show", "some", "that", "the", "to", "want",
+        "with",
+    ]
+
+    private static let synonymGroups: [Set<String>] = [
+        ["hat", "cap", "beanie", "headwear", "balaclava", "trucker"],
+        ["shoe", "sneaker", "footwear", "trainer", "boot", "loafer", "clog"],
+        ["lamp", "light", "lighting", "sconce", "pendant", "chandelier"],
+        ["sofa", "couch", "settee"],
+        ["chair", "seating", "stool", "bench"],
+        ["coffee", "espresso", "grinder", "kettle", "brewer"],
+        ["bag", "backpack", "tote", "pouch", "luggage"],
+        ["shirt", "tee", "tshirt", "top"],
+        ["jacket", "coat", "outerwear", "parka"],
+        ["pant", "trouser", "jean", "denim"],
+        ["watch", "timepiece", "chronograph"],
+        ["book", "publication", "magazine", "manual"],
+        ["skincare", "skin", "serum", "cleanser", "moisturizer"],
+        ["hair", "shampoo", "conditioner", "scalp"],
+        ["outdoor", "trail", "hiking", "camping"],
+    ]
+
+    static func stories(
+        intent: String,
+        buyer: BuyerPreviewProfile,
+        catalog: PersonalizedFeedCatalog,
+        merchants: [SampleMerchant],
+        followedMerchants: [SampleMerchant]
+    ) -> [FeedStory] {
+        let intentTerms = meaningfulTokens(in: intent)
+        guard !intentTerms.isEmpty else { return [] }
+        let expandedTerms = expanded(intentTerms)
+        let followedIDs = Set(followedMerchants.map(\.id))
+        let authoredReferences = Set(
+            buyer.topics.flatMap(\.storyIDs)
+                .compactMap { storyID in catalog.stories.first { $0.id == storyID } }
+                .flatMap(\.products)
+        )
+        let authoredMerchantCounts = authoredReferences.reduce(into: [String: Int]()) {
+            $0[$1.merchantID, default: 0] += 1
+        }
+        let authoredVocabulary = buyerAffinityVocabulary(
+            references: authoredReferences,
+            merchants: merchants
+        )
+
+        let ranked = merchants.flatMap { merchant in
+            merchant.products.compactMap { product -> Candidate? in
+                guard isUseful(product) else { return nil }
+                let relevance = relevanceScore(
+                    product: product,
+                    merchant: merchant,
+                    intentTerms: intentTerms,
+                    expandedTerms: expandedTerms
+                )
+                guard relevance > 0 else { return nil }
+
+                var affinity = authoredMerchantCounts[merchant.id, default: 0] * 3
+                if followedIDs.contains(merchant.id) { affinity += 24 }
+                if authoredReferences.contains(
+                    FeedStory.ProductReference(merchantID: merchant.id, productID: product.id)
+                ) {
+                    affinity += 40
+                }
+                affinity += productTokens(product).intersection(authoredVocabulary).count
+                if buyer.id == "luke", let signals = catalog.signals {
+                    affinity += signals.strength(
+                        merchantID: merchant.id,
+                        productID: product.id
+                    ).rawValue * 18
+                }
+                return Candidate(
+                    merchant: merchant,
+                    product: product,
+                    relevance: relevance,
+                    affinity: affinity
+                )
+            }
+        }
+        .sorted {
+            if $0.relevance != $1.relevance { return $0.relevance > $1.relevance }
+            if $0.affinity != $1.affinity { return $0.affinity > $1.affinity }
+            if $0.merchant.id != $1.merchant.id { return $0.merchant.id < $1.merchant.id }
+            return $0.product.id < $1.product.id
+        }
+
+        let diversified = diversify(ranked)
+        if !diversified.isEmpty {
+            return makeStories(
+                from: diversified,
+                intent: intent,
+                buyer: buyer
+            )
+        }
+
+        // Some authored topics carry useful editorial semantics that are not
+        // repeated in product metadata. They are a safe fallback only when the
+        // story itself matches the request; unrelated For You stories never
+        // enter a custom feed.
+        return catalog.stories
+            .filter { storyRelevance($0, terms: expandedTerms) > 0 }
+            .sorted {
+                let lhs = storyRelevance($0, terms: expandedTerms)
+                let rhs = storyRelevance($1, terms: expandedTerms)
+                return lhs == rhs ? $0.id < $1.id : lhs > rhs
+            }
+    }
+
+    static func validationIssues(
+        buyer: BuyerPreviewProfile,
+        catalog: PersonalizedFeedCatalog,
+        merchants: [SampleMerchant],
+        followedMerchants: [SampleMerchant]
+    ) -> [String] {
+        let intent = "Hats I like"
+        let resolved = stories(
+            intent: intent,
+            buyer: buyer,
+            catalog: catalog,
+            merchants: merchants,
+            followedMerchants: followedMerchants
+        )
+        if resolved.isEmpty { return ["Hats custom feed returned no cards"] }
+
+        let merchantsByID = Dictionary(uniqueKeysWithValues: merchants.map { ($0.id, $0) })
+        return resolved.flatMap { story in
+            story.products.compactMap { reference in
+                guard let merchant = merchantsByID[reference.merchantID],
+                      let product = merchant.products.first(where: { $0.id == reference.productID }) else {
+                    return "\(story.id): unresolved custom-feed product"
+                }
+                return productMatches(product, merchant: merchant, intent: intent)
+                    ? nil
+                    : "\(story.id): \(product.title) is unrelated to hats"
+            }
+        }
+    }
+
+    static func productMatches(
+        _ product: SampleMerchant.Product,
+        merchant: SampleMerchant,
+        intent: String
+    ) -> Bool {
+        let terms = meaningfulTokens(in: intent)
+        return relevanceScore(
+            product: product,
+            merchant: merchant,
+            intentTerms: terms,
+            expandedTerms: expanded(terms)
+        ) > 0
+    }
+
+    private static func makeStories(
+        from candidates: [Candidate],
+        intent: String,
+        buyer: BuyerPreviewProfile
+    ) -> [FeedStory] {
+        let slug = meaningfulTokens(in: intent).sorted().joined(separator: "-")
+        let shopperName = buyer.name.split(separator: " ").first.map(String.init) ?? buyer.name
+        let chunks = stride(from: 0, to: min(candidates.count, 30), by: 6).map {
+            Array(candidates[$0..<min($0 + 6, candidates.count)])
+        }
+
+        return chunks.enumerated().map { index, candidates in
+            let title = switch index {
+            case 0: "\(intent), picked for you"
+            case 1: "More \(intent.lowercased()) to consider"
+            default: "A different take on \(intent.lowercased())"
+            }
+            return FeedStory(
+                id: "custom-feed-\(buyer.id)-\(slug)-\(index)",
+                eyebrow: "Made for \(shopperName)",
+                title: title,
+                subtitle: "Relevant finds, tuned to what you already like",
+                format: .shortlist,
+                topicKeys: Set(["custom-feed", "catalog-only-media"])
+                    .union(meaningfulTokens(in: intent)),
+                accentHex: candidates.first?.merchant.coverDominantColor ?? "#343434",
+                coverImageName: nil,
+                destinationLabel: "Explore \(intent)",
+                products: candidates.map {
+                    FeedStory.ProductReference(
+                        merchantID: $0.merchant.id,
+                        productID: $0.product.id
+                    )
+                }
+            )
+        }
+    }
+
+    private static func diversify(_ candidates: [Candidate]) -> [Candidate] {
+        var buckets = Dictionary(grouping: candidates, by: { $0.merchant.id })
+        let merchantOrder = buckets.keys.sorted {
+            guard let lhs = buckets[$0]?.first, let rhs = buckets[$1]?.first else {
+                return $0 < $1
+            }
+            if lhs.relevance != rhs.relevance { return lhs.relevance > rhs.relevance }
+            if lhs.affinity != rhs.affinity { return lhs.affinity > rhs.affinity }
+            return $0 < $1
+        }
+        var result: [Candidate] = []
+        while result.count < candidates.count {
+            var appended = false
+            for merchantID in merchantOrder {
+                guard var bucket = buckets[merchantID], !bucket.isEmpty else { continue }
+                result.append(bucket.removeFirst())
+                buckets[merchantID] = bucket
+                appended = true
+            }
+            if !appended { break }
+        }
+        return result
+    }
+
+    private static func relevanceScore(
+        product: SampleMerchant.Product,
+        merchant: SampleMerchant,
+        intentTerms: Set<String>,
+        expandedTerms: Set<String>
+    ) -> Int {
+        guard !intentTerms.isEmpty else { return 0 }
+        let title = tokens(in: product.title)
+        let type = tokens(in: product.productType ?? "")
+        let tags = tokens(in: product.tags.joined(separator: " "))
+        let description = tokens(in: product.productDescription ?? "")
+        let brand = tokens(in: "\(product.vendor) \(merchant.name)")
+        let direct = intentTerms
+
+        return title.intersection(direct).count * 30
+            + type.intersection(direct).count * 26
+            + tags.intersection(direct).count * 18
+            + brand.intersection(direct).count * 16
+            + description.intersection(direct).count * 5
+            + title.intersection(expandedTerms.subtracting(direct)).count * 18
+            + type.intersection(expandedTerms.subtracting(direct)).count * 16
+            + tags.intersection(expandedTerms.subtracting(direct)).count * 12
+            + brand.intersection(expandedTerms.subtracting(direct)).count * 10
+            + description.intersection(expandedTerms.subtracting(direct)).count * 3
+    }
+
+    private static func storyRelevance(_ story: FeedStory, terms: Set<String>) -> Int {
+        let searchable = tokens(in: "\(story.title) \(story.subtitle) \(story.topicKeys.joined(separator: " "))")
+        return searchable.intersection(terms).count
+    }
+
+    private static func buyerAffinityVocabulary(
+        references: Set<FeedStory.ProductReference>,
+        merchants: [SampleMerchant]
+    ) -> Set<String> {
+        references.reduce(into: Set<String>()) { result, reference in
+            guard let merchant = merchants.first(where: { $0.id == reference.merchantID }),
+                  let product = merchant.products.first(where: { $0.id == reference.productID }) else {
+                return
+            }
+            result.formUnion(productTokens(product))
+        }
+    }
+
+    private static func productTokens(_ product: SampleMerchant.Product) -> Set<String> {
+        tokens(in: ([
+            product.title,
+            product.productType ?? "",
+            product.vendor,
+            product.productDescription ?? "",
+        ] + product.tags).joined(separator: " "))
+    }
+
+    private static func meaningfulTokens(in value: String) -> Set<String> {
+        tokens(in: value).subtracting(ignoredTerms)
+    }
+
+    private static func expanded(_ terms: Set<String>) -> Set<String> {
+        synonymGroups.reduce(into: terms) { result, group in
+            if !group.isDisjoint(with: terms) { result.formUnion(group) }
+        }
+    }
+
+    private static func tokens(in value: String) -> Set<String> {
+        Set(
+            value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+                .lowercased()
+                .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+                .map { canonicalToken(String($0)) }
+                .filter { !$0.isEmpty }
+        )
+    }
+
+    private static func canonicalToken(_ token: String) -> String {
+        let irregular: [String: String] = [
+            "hats": "hat", "caps": "cap", "beanies": "beanie",
+            "shoes": "shoe", "sneakers": "sneaker", "boots": "boot",
+            "bags": "bag", "books": "book", "chairs": "chair",
+            "lamps": "lamp", "pants": "pant", "tees": "tee",
+            "watches": "watch",
+        ]
+        return irregular[token] ?? token
+    }
+
+    private static func isUseful(_ product: SampleMerchant.Product) -> Bool {
+        guard product.imageURL != nil || !product.allImageURLs.isEmpty else { return false }
+        let title = product.title.lowercased()
+        return !["gift card", "replacement", "spare part", "swatch", "sample", "shipping", "warranty", "deposit"]
+            .contains { title.contains($0) }
     }
 }

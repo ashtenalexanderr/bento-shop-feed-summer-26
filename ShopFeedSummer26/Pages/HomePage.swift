@@ -351,6 +351,16 @@ struct HomePage: View {
                 buyerFixtureIssues.isEmpty,
                 "Invalid buyer feed fixtures:\n\(buyerFixtureIssues.joined(separator: "\n"))"
             )
+            let customFeedIssues = CustomFeedRecommendationEngine.validationIssues(
+                buyer: buyerPreview.selected,
+                catalog: PersonalizedFeedCatalog.current,
+                merchants: merchants,
+                followedMerchants: activeRelationshipMerchants
+            )
+            assert(
+                customFeedIssues.isEmpty,
+                "Invalid custom feed recommendations:\n\(customFeedIssues.joined(separator: "\n"))"
+            )
 #endif
         }
         .onChange(of: feedService.revision) { _, _ in
@@ -1423,6 +1433,13 @@ struct HomePage: View {
     /// match wins over secondary membership so cards such as New York graphics
     /// can own a destination even when they also appear in Type & transit.
     private func openTopic(for story: FeedStory) {
+        if story.id.hasPrefix("custom-feed-") {
+            coordinator.resetScrollState()
+            expandingStoryID = story.id
+            coordinator.pushRoute(.customStory(story: story, sourceId: story.id))
+            return
+        }
+
         // Authored buyer shelves use the same explicit source ID as the feed
         // card so NavigationStack can perform the native shared-view zoom.
         if buyerPreview.selected.usesInlineTopicNavigation,

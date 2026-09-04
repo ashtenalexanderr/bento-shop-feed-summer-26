@@ -81,6 +81,14 @@ struct RootView: View {
                 namespace: namespace,
                 transitionSourceID: sourceId
             )
+        case .customStory(let story, let sourceId):
+            StoryTopicPage(
+                storyID: story.id,
+                namespace: namespace,
+                transitionSourceID: sourceId,
+                storyOverride: story,
+                merchantOverride: SampleMerchant.all
+            )
         case .topicExpanded(let topicId, let sourceStoryId):
             StoryTopicPage(
                 storyID: sourceStoryId,

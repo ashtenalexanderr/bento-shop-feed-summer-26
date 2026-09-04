@@ -5,6 +5,7 @@ private struct CreatedFeed: Codable, Hashable, Identifiable {
     let name: String
     let sourceCategoryID: String
     let storyIDs: [String]
+    var customIntent: String? = nil
 
     var topic: BuyerFeedTopic {
         BuyerFeedTopic(
@@ -12,7 +13,10 @@ private struct CreatedFeed: Codable, Hashable, Identifiable {
             label: name,
             sourceCategoryID: sourceCategoryID,
             storyIDs: storyIDs,
-            evidence: .discovery
+            evidence: .discovery,
+            // Existing saved feeds predate customIntent; their names are the
+            // best available expression of what the shopper asked for.
+            customIntent: customIntent ?? name
         )
     }
 }
@@ -90,10 +94,8 @@ final class CustomFeedStore {
             id: "created-feed-\(UUID().uuidString.lowercased())",
             name: name,
             sourceCategoryID: placeholderSource.sourceCategoryID,
-            storyIDs: placeholderStoryIDs(
-                from: placeholderSource.storyIDs,
-                offset: customization.createdFeeds.count
-            )
+            storyIDs: [],
+            customIntent: name
         )
         customization.createdFeeds.append(feed)
         customization.orderedFeedIDs.append(feed.id)
@@ -141,14 +143,6 @@ final class CustomFeedStore {
         customization.orderedFeedIDs.removeAll { $0 == feedID }
         customizationByBuyerID[buyerID] = customization
         persist()
-    }
-
-    private func placeholderStoryIDs(from storyIDs: [String], offset: Int) -> [String] {
-        guard !storyIDs.isEmpty else { return [] }
-        let count = min(2, storyIDs.count)
-        return (0..<count).map { index in
-            storyIDs[(offset + index) % storyIDs.count]
-        }
     }
 
     private func persist() {

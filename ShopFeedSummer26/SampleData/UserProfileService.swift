@@ -19,19 +19,24 @@ struct BuyerFeedTopic: Identifiable, Hashable {
     let sourceCategoryID: String
     let storyIDs: [String]
     let evidence: BuyerShelfEvidence
+    /// Shopper-authored retrieval intent. Authored navigation topics leave
+    /// this nil and continue to resolve their exact story IDs.
+    let customIntent: String?
 
     init(
         id: String,
         label: String,
         sourceCategoryID: String? = nil,
         storyIDs: [String],
-        evidence: BuyerShelfEvidence
+        evidence: BuyerShelfEvidence,
+        customIntent: String? = nil
     ) {
         self.id = id
         self.label = label
         self.sourceCategoryID = sourceCategoryID ?? id
         self.storyIDs = storyIDs
         self.evidence = evidence
+        self.customIntent = customIntent
     }
 }
 

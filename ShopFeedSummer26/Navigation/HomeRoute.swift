@@ -8,6 +8,9 @@ enum HomeRoute: Hashable {
     /// initiated the push. Home feed cards provide their own story ID; topic
     /// chrome keeps using the legacy subtopic source when this is nil.
     case story(storyId: String, sourceId: String? = nil)
+    /// A shopper-authored feed creates stories at planning time rather than
+    /// storing them in the authored catalog, so the route carries that story.
+    case customStory(story: FeedStory, sourceId: String)
     /// Opens the original topic page through its source feed card.
     case topicExpanded(topicId: String, sourceStoryId: String)
     case tryOnStudio
