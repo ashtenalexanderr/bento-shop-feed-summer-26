@@ -402,7 +402,6 @@ struct FeedManagerSheet: View {
     let onCreateNew: () -> Void
     let onDeleteSelectedFeed: () -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @State private var pendingDeletion: BuyerFeedTopic?
     @GestureState private var draggedFeedID: String?
     @State private var dragOriginOrder: [String] = []
@@ -445,13 +444,11 @@ struct FeedManagerSheet: View {
             .frame(height: sheetHeight)
             .padding(.horizontal, GravitySpacing.space4)
             .padding(.bottom, GravitySpacing.space4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            .background {
-                Color.black.opacity(0.18)
-                    .contentShape(Rectangle())
-                    .onTapGesture { dismiss() }
-            }
-            .ignoresSafeArea()
+            // The native sheet owns the dimming view so it fades in place;
+            // keeping the scrim out of this rising content prevents the
+            // bottom-up gray wipe from the full-screen-cover treatment.
+            .presentationDetents([.height(sheetHeight + GravitySpacing.space4)])
+            .presentationDragIndicator(.hidden)
             .presentationBackground(.clear)
             .onChange(of: draggedFeedID) { oldValue, newValue in
                 if oldValue != nil && newValue == nil {
