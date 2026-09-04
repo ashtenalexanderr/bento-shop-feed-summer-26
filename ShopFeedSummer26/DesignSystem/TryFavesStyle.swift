@@ -21,10 +21,10 @@ enum TryFavesStyle {
     /// How far the photograph rides above the page.
     ///
     /// Centred, the frame puts the subject's feet well down behind the look
-    /// panel. Lifting it sets the figure back where the composition wants it,
-    /// and the strip the lift leaves at the foot of the page is filled with
-    /// the frame's own sampled ground tone, so the lift itself is invisible.
-    static let frameLift: CGFloat = 96
+    /// panel. A restrained lift keeps them there without pushing the avatar's
+    /// hair into the header or cropping the top of generated portraits. The
+    /// strip left at the foot is filled with the frame's sampled ground tone.
+    static let frameLift: CGFloat = 64
 
     /// The header and panel fades are one treatment, mirrored: the same
     /// dissolve and the same reach, one running down from the top edge and one
