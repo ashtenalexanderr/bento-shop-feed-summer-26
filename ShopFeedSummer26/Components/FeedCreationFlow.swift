@@ -492,7 +492,6 @@ struct FeedManagerSheet: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 20))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    .highPriorityGesture(reorderGesture(for: feed))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
                             pendingDeletion = feed
@@ -545,7 +544,13 @@ struct FeedManagerSheet: View {
                 Image("feed-manager-drag", bundle: .main)
                     .resizable()
                     .frame(width: GravitySpacing.space16, height: GravitySpacing.space16)
-                    .accessibilityHidden(true)
+                    .frame(width: GravitySpacing.space32, height: GravitySpacing.space36)
+                    .contentShape(Rectangle())
+                    // Reordering belongs to the handle only. Giving this
+                    // gesture priority across the full row prevents List's
+                    // trailing swipe action from ever beginning.
+                    .highPriorityGesture(reorderGesture(for: feed))
+                    .accessibilityLabel("Reorder \(feed.label)")
 
                 Circle()
                     .fill(GravityColors.bgFillSecondary)
