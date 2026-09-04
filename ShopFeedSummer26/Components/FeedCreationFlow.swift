@@ -104,17 +104,17 @@ final class CustomFeedStore {
 
     func moveFeed(
         _ feedID: String,
-        to targetID: String,
+        toIndex targetIndex: Int,
         for buyerID: String,
         authoredTopics: [BuyerFeedTopic]
     ) {
-        guard feedID != targetID else { return }
         var orderedIDs = managedTopics(
             for: buyerID,
             authoredTopics: authoredTopics
         ).map(\.id)
         guard let sourceIndex = orderedIDs.firstIndex(of: feedID),
-              let targetIndex = orderedIDs.firstIndex(of: targetID) else { return }
+              orderedIDs.indices.contains(targetIndex),
+              sourceIndex != targetIndex else { return }
 
         orderedIDs.remove(at: sourceIndex)
         orderedIDs.insert(feedID, at: targetIndex)
@@ -395,8 +395,6 @@ struct CreateFeedSheet: View {
 }
 
 struct FeedManagerSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
     @Bindable var store: CustomFeedStore
     let buyerID: String
     let authoredTopics: [BuyerFeedTopic]
@@ -404,26 +402,97 @@ struct FeedManagerSheet: View {
     let onCreateNew: () -> Void
     let onDeleteSelectedFeed: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var pendingDeletion: BuyerFeedTopic?
+    @GestureState private var draggedFeedID: String?
+    @State private var dragOriginOrder: [String] = []
+    @State private var dragTargetIndex: Int?
+    @State private var dragTranslation: CGFloat = 0
+
+    private let rowStride: CGFloat = 52
 
     private var feeds: [BuyerFeedTopic] {
         store.managedTopics(for: buyerID, authoredTopics: authoredTopics)
     }
 
     private var sheetHeight: CGFloat {
-        min(620, max(260, 170 + CGFloat(feeds.count) * 52))
+        // Keep the 52-point row rhythm and the Figma frame's bottom breathing
+        // room without allowing long feed lists to overtake the viewport.
+        min(486, max(143, 91 + CGFloat(feeds.count) * 52))
+    }
+
+    private var sheetShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: GravityRadius.r40,
+            bottomLeadingRadius: 52,
+            bottomTrailingRadius: 52,
+            topTrailingRadius: GravityRadius.r40,
+            style: .continuous
+        )
+    }
+
+    private var draggedRowOffset: CGFloat {
+        guard let draggedFeedID,
+              let sourceIndex = dragOriginOrder.firstIndex(of: draggedFeedID),
+              let targetIndex = dragTargetIndex else {
+            return dragTranslation
+        }
+        return dragTranslation - CGFloat(targetIndex - sourceIndex) * rowStride
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            managerHeader
+        managerSurface
+            .frame(height: sheetHeight)
+            .padding(.horizontal, GravitySpacing.space4)
+            .padding(.bottom, GravitySpacing.space4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .background {
+                Color.black.opacity(0.18)
+                    .contentShape(Rectangle())
+                    .onTapGesture { dismiss() }
+            }
+            .ignoresSafeArea()
+            .presentationBackground(.clear)
+            .onChange(of: draggedFeedID) { oldValue, newValue in
+                if oldValue != nil && newValue == nil {
+                    resetDragState()
+                }
+            }
+            .alert(
+                "Delete feed?",
+                isPresented: Binding(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                presenting: pendingDeletion
+            ) { feed in
+                Button("Cancel", role: .cancel) {
+                    pendingDeletion = nil
+                }
+                Button("Delete", role: .destructive) {
+                    store.deleteFeed(
+                        feed.id,
+                        for: buyerID,
+                        authoredTopics: authoredTopics
+                    )
+                    if feed.id == selectedFeedID {
+                        onDeleteSelectedFeed()
+                    }
+                    pendingDeletion = nil
+                }
+            } message: { feed in
+                Text("“\(feed.label)” will be removed from your feeds.")
+            }
+    }
 
-            List {
+    private var managerSurface: some View {
+        List {
             ForEach(feeds) { feed in
                 feedRow(feed)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 20))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .highPriorityGesture(reorderGesture(for: feed))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
                             pendingDeletion = feed
@@ -431,120 +500,57 @@ struct FeedManagerSheet: View {
                             Label("Delete", systemImage: "trash")
                         }
                     }
-                    .dropDestination(for: String.self) { draggedIDs, _ in
-                        guard let draggedID = draggedIDs.first else { return false }
-                        store.moveFeed(
-                            draggedID,
-                            to: feed.id,
-                            for: buyerID,
-                            authoredTopics: authoredTopics
-                        )
-                        HapticFeedback.light.fire()
-                        return true
-                    }
             }
-
-                Button {
-                    HapticFeedback.light.fire()
-                    onCreateNew()
-                } label: {
-                    HStack(spacing: GravitySpacing.space10) {
-                        Image("icon-plus-sign-small", bundle: .main)
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: GravitySpacing.space16, height: GravitySpacing.space16)
-                            .foregroundStyle(GravityColors.textBrand)
-                            .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
-                            .background(Color(hex: "#EFEAFF"), in: Circle())
-
-                        Text("Create new feed")
-                            .gravityTextStyle(GravityTypography.subtitle)
-                            .foregroundStyle(GravityColors.textBrand)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: GravitySpacing.space36, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .contentMargins(.top, 0, for: .scrollContent)
-        }
-        .background(GravityColors.bgFill)
-        .alert(
-            "Delete feed?",
-            isPresented: Binding(
-                get: { pendingDeletion != nil },
-                set: { if !$0 { pendingDeletion = nil } }
-            ),
-            presenting: pendingDeletion
-        ) { feed in
-            Button("Cancel", role: .cancel) {
-                pendingDeletion = nil
-            }
-            Button("Delete", role: .destructive) {
-                store.deleteFeed(
-                    feed.id,
-                    for: buyerID,
-                    authoredTopics: authoredTopics
-                )
-                if feed.id == selectedFeedID {
-                    onDeleteSelectedFeed()
-                }
-                pendingDeletion = nil
-            }
-        } message: { feed in
-            Text("“\(feed.label)” will be removed from your feeds.")
-        }
-        .presentationDetents([.height(sheetHeight)])
-        .presentationCornerRadius(GravityRadius.r40)
-        .presentationDragIndicator(.visible)
-        .presentationBackground(GravityColors.bgFill)
-    }
-
-    private var managerHeader: some View {
-        HStack(alignment: .center, spacing: GravitySpacing.space12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Manage feeds")
-                    .gravityTextStyle(GravityTypography.headerBold)
-                    .foregroundStyle(GravityColors.text)
-                Text("Hold and drag to reorder")
-                    .gravityTextStyle(GravityTypography.caption)
-                    .foregroundStyle(GravityColors.textSecondary)
-            }
-
-            Spacer()
 
             Button {
-                dismiss()
+                HapticFeedback.light.fire()
+                onCreateNew()
             } label: {
-                GravityIcon.cross.image
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: GravitySpacing.space16, height: GravitySpacing.space16)
-                    .foregroundStyle(GravityColors.text)
-                    .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
-                    .background(GravityColors.bgFillSecondary, in: Circle())
+                HStack(spacing: GravitySpacing.space10) {
+                    Circle()
+                        .fill(GravityColors.bgFillSecondary)
+                        .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
+
+                    HStack(spacing: GravitySpacing.space4) {
+                        Text("Create new")
+                        GravityIcon.shopLogo.image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: GravitySpacing.space20, height: GravitySpacing.space20)
+                        Text("feed")
+                    }
+                    .gravityTextStyle(GravityTypography.subtitle)
+                    .foregroundStyle(GravityColors.textBrand)
+                }
+                .frame(maxWidth: .infinity, minHeight: GravitySpacing.space36, alignment: .leading)
             }
-            .buttonStyle(PressScaleButtonStyle())
-            .accessibilityLabel("Close feed manager")
+            .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets(top: 8, leading: 36, bottom: 8, trailing: 20))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
-        .padding(.horizontal, GravitySpacing.space20)
-        .padding(.top, GravitySpacing.space20)
-        .padding(.bottom, GravitySpacing.space8)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.top, GravitySpacing.space12, for: .scrollContent)
+        .background(GravityColors.bgFill)
+        .clipShape(sheetShape)
+        .shadow(color: GravityColors.shadow300, radius: GravitySpacing.space24, y: GravitySpacing.space4)
     }
 
     private func feedRow(_ feed: BuyerFeedTopic) -> some View {
-        HStack(spacing: GravitySpacing.space10) {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(GravityColors.textTertiary)
-                .frame(width: GravitySpacing.space20, height: GravitySpacing.space36)
+        let isDragging = draggedFeedID == feed.id
 
-            feedBadge(feed)
+        return HStack(spacing: GravitySpacing.space10) {
+            HStack(spacing: GravitySpacing.space4) {
+                Image("feed-manager-drag", bundle: .main)
+                    .resizable()
+                    .frame(width: GravitySpacing.space16, height: GravitySpacing.space16)
+                    .accessibilityHidden(true)
+
+                Circle()
+                    .fill(GravityColors.bgFillSecondary)
+                    .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
+            }
 
             Text(feed.label)
                 .gravityTextStyle(GravityTypography.subtitle)
@@ -553,46 +559,84 @@ struct FeedManagerSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(minHeight: GravitySpacing.space36)
+        .background {
+            RoundedRectangle(cornerRadius: GravityRadius.r16, style: .continuous)
+                .fill(isDragging ? GravityColors.bgFill : Color.clear)
+        }
+        .shadow(
+            color: isDragging ? GravityColors.shadow300 : .clear,
+            radius: isDragging ? GravitySpacing.space12 : 0,
+            y: isDragging ? GravitySpacing.space4 : 0
+        )
+        .scaleEffect(isDragging ? 1.025 : 1)
+        .offset(y: isDragging ? draggedRowOffset : 0)
+        .zIndex(isDragging ? 1 : 0)
+        .animation(SpringPreset.smooth, value: isDragging)
         .contentShape(Rectangle())
-        .draggable(feed.id)
     }
 
-    private func feedBadge(_ feed: BuyerFeedTopic) -> some View {
-        let treatment = feedBadgeTreatment(for: feed)
-        return Image(systemName: treatment.symbol)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(treatment.foreground)
-            .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
-            .background(treatment.background, in: Circle())
+    private func reorderGesture(for feed: BuyerFeedTopic) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.18, maximumDistance: 20)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+            .updating($draggedFeedID) { phase, draggedFeedID, _ in
+                switch phase {
+                case .first(true), .second(true, _):
+                    draggedFeedID = feed.id
+                default:
+                    break
+                }
+            }
+            .onChanged { phase in
+                switch phase {
+                case .second(true, let drag?):
+                    beginDragging(feed)
+                    updateDrag(feed, translation: drag.translation.height)
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                resetDragState()
+            }
     }
 
-    private func feedBadgeTreatment(
-        for feed: BuyerFeedTopic
-    ) -> (symbol: String, foreground: Color, background: Color) {
-        let value = "\(feed.id) \(feed.label)".lowercased()
-        if value.contains("hat") || value.contains("cap") {
-            return ("baseball.cap.fill", Color(hex: "#6A4330"), Color(hex: "#EEE0D5"))
-        }
-        if value.contains("living") || value.contains("home") || value.contains("design") {
-            return ("sofa.fill", Color(hex: "#405846"), Color(hex: "#DDE8DF"))
-        }
-        if value.contains("style") || value.contains("essential") {
-            return ("tshirt.fill", Color(hex: "#5C4665"), Color(hex: "#E9DFED"))
-        }
-        if value.contains("wellness") || value.contains("training") || value.contains("skin") {
-            return ("heart.fill", Color(hex: "#864D52"), Color(hex: "#F1DFE0"))
-        }
-        if value.contains("food") || value.contains("coffee") || value.contains("morning") {
-            return ("cup.and.saucer.fill", Color(hex: "#79562E"), Color(hex: "#F2E4CE"))
-        }
-        if value.contains("outdoor") || value.contains("bird") || value.contains("trail") {
-            return ("mountain.2.fill", Color(hex: "#466044"), Color(hex: "#DCE7D7"))
-        }
-        if value.contains("tech") || value.contains("sim") {
-            return ("display", Color(hex: "#405A70"), Color(hex: "#DEE8EF"))
-        }
-        return ("sparkles", Color(hex: "#5433EB"), Color(hex: "#EFEAFF"))
+    private func beginDragging(_ feed: BuyerFeedTopic) {
+        guard dragOriginOrder.isEmpty else { return }
+        dragOriginOrder = feeds.map(\.id)
+        dragTargetIndex = dragOriginOrder.firstIndex(of: feed.id)
+        HapticFeedback.medium.fire()
     }
+
+    private func updateDrag(_ feed: BuyerFeedTopic, translation: CGFloat) {
+        guard let sourceIndex = dragOriginOrder.firstIndex(of: feed.id),
+              !dragOriginOrder.isEmpty else { return }
+
+        dragTranslation = translation
+        let rowOffset = Int((translation / rowStride).rounded())
+        let targetIndex = min(
+            max(sourceIndex + rowOffset, dragOriginOrder.startIndex),
+            dragOriginOrder.index(before: dragOriginOrder.endIndex)
+        )
+        guard targetIndex != dragTargetIndex else { return }
+
+        withAnimation(SpringPreset.smooth) {
+            dragTargetIndex = targetIndex
+            store.moveFeed(
+                feed.id,
+                toIndex: targetIndex,
+                for: buyerID,
+                authoredTopics: authoredTopics
+            )
+        }
+        HapticFeedback.light.fire()
+    }
+
+    private func resetDragState() {
+        withAnimation(SpringPreset.smooth) { dragTranslation = 0 }
+        dragOriginOrder = []
+        dragTargetIndex = nil
+    }
+
 }
 
 extension HomePage {

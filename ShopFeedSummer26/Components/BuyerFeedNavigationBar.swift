@@ -124,11 +124,8 @@ struct BuyerFeedNavigationBar: View {
                     )
                 }
             }
-            // One recognizer decides between the two outcomes. This avoids
-            // the former Button/long-press competition and guarantees a long
-            // press cannot also select the feed when the finger lifts.
             .gesture(
-                LongPressGesture(minimumDuration: 0.45)
+                LongPressGesture(minimumDuration: 0.45, maximumDistance: 20)
                     .exclusively(before: TapGesture())
                     .onEnded { result in
                         switch result {
@@ -140,13 +137,14 @@ struct BuyerFeedNavigationBar: View {
                         }
                     }
             )
-            .accessibilityElement()
             .accessibilityLabel(topic.label)
-            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityAction {
                 onSelectTopic(topic)
             }
             .accessibilityAction(named: "Manage feeds") {
+                HapticFeedback.medium.fire()
                 onManageFeeds()
             }
     }

@@ -406,7 +406,7 @@ struct HomePage: View {
             CreateFeedSheet(onCreate: createFeed)
                 .environment(\.colorScheme, .light)
         }
-        .sheet(isPresented: $showsFeedManager) {
+        .fullScreenCover(isPresented: $showsFeedManager) {
             FeedManagerSheet(
                 store: customFeedStore,
                 buyerID: buyerPreview.selected.id,
