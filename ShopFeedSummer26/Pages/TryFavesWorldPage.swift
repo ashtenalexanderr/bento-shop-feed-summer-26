@@ -564,12 +564,16 @@ struct TryFavesWorldPage: View {
 
     private func titleRow(for look: TryFavesLookService.Look) -> some View {
         HStack {
-            Text(look.title)
-                .gravityTextStyle(GravityTypography.expressiveH8Heavy)
-                .foregroundStyle(TryFavesStyle.stageText)
-                .lineLimit(1)
+            // The seed outfit is self-evident and fixed, so it does not need
+            // the generic “Look 1” label. Generated looks retain their name
+            // alongside the retry/delete menu.
+            if look.id != TryFavesLookService.seedLookID {
+                Text(look.title)
+                    .gravityTextStyle(GravityTypography.expressiveH8Heavy)
+                    .foregroundStyle(TryFavesStyle.stageText)
+                    .lineLimit(1)
+            }
             Spacer()
-            // The seed outfit is fixed — no retry or delete.
             if look.id != TryFavesLookService.seedLookID {
                 Menu {
                     if look.state.isFailed {
