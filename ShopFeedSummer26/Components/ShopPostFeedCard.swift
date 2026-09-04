@@ -10,9 +10,9 @@ struct ShopPostFeedCard: View {
     var cornerRadius: CGFloat = GravityRadius.r28
     var bottomCornerRadius: CGFloat? = nil
     var foregroundTopPadding: CGFloat = GravitySpacing.space20
-    var headerTrailingPadding: CGFloat = 0
     var borderOpacity: Double = 0.16
     var shadowOpacity: Double = 1
+    var onOverflowTap: (() -> Void)?
 
     @State private var selectedProductIndex = 0
     @State private var productDragOffset: CGFloat = 0
@@ -63,10 +63,18 @@ struct ShopPostFeedCard: View {
             )
             .allowsHitTesting(false)
 
-            merchantHeader
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, FeedCardStyle.foregroundHorizontalPadding)
+            overflowButton
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(.trailing, GravitySpacing.space12)
                 .padding(.top, foregroundTopPadding)
+
+            postActions
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(.trailing, GravitySpacing.space12)
+                .padding(
+                    .bottom,
+                    FeedCardStyle.foregroundBottomPadding + 82 + GravitySpacing.space20
+                )
 
             postFooter
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -115,39 +123,62 @@ struct ShopPostFeedCard: View {
         }
     }
 
-    private var merchantHeader: some View {
-        HStack(alignment: .top, spacing: GravitySpacing.space10) {
-            merchantLogo
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(post.merchant.name)
-                    .font(.system(size: 16, weight: .semibold))
-                    .lineLimit(1)
-                Text("2 hours ago")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.88))
-            }
-
-            Spacer(minLength: GravitySpacing.space8)
+    private var overflowButton: some View {
+        Button {
+            HapticFeedback.light.fire()
+            onOverflowTap?()
+        } label: {
+            Image("feedback-overflow")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+                .shadow(color: .black.opacity(0.24), radius: 4, y: 2)
         }
-        .foregroundStyle(.white)
-        .gravityShadow(GravityShadows.feedText)
-        .padding(.trailing, headerTrailingPadding)
+        .buttonStyle(.plain)
+        .accessibilityLabel("More")
+    }
+
+    private var postActions: some View {
+        PrototypeFeedbackActions(
+            layout: .vertical,
+            foregroundColor: .white,
+            appliesShadow: true,
+            includesOverflow: false,
+            includesVolume: false,
+            includesThread: true,
+            usesPostActionOrder: true
+        )
     }
 
     private var postFooter: some View {
-        VStack(alignment: .leading, spacing: GravitySpacing.space6) {
-            Text(displayTitle)
-                .font(.system(size: 20, weight: .bold))
-                .tracking(-0.35)
-                .lineLimit(2)
+        VStack(alignment: .leading, spacing: GravitySpacing.space8) {
+            postPagination
 
-            if let copy = primaryCopy {
-                Text(copy)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.90))
-                    .lineLimit(2)
+            HStack(spacing: GravitySpacing.space10) {
+                merchantLogo
+                Text(post.merchant.name)
+                    .font(.system(size: 17, weight: .semibold))
+                    .lineLimit(1)
             }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(displayTitle)
+                    .font(.system(size: 16, weight: .semibold))
+                    .tracking(-0.2)
+                    .lineLimit(1)
+
+                if let copy = primaryCopy {
+                    Text(copy)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.88))
+                        .lineLimit(1)
+                }
+            }
+            .padding(.trailing, 52)
 
             Group {
                 if attachedProducts.isEmpty {
@@ -156,10 +187,25 @@ struct ShopPostFeedCard: View {
                     productDeck
                 }
             }
-            .padding(.top, GravitySpacing.space6)
+            .padding(.top, GravitySpacing.space4)
         }
         .foregroundStyle(.white)
         .gravityShadow(GravityShadows.feedText)
+    }
+
+    @ViewBuilder
+    private var postPagination: some View {
+        if attachedProducts.count > 1 {
+            HStack(spacing: GravitySpacing.space6) {
+                ForEach(attachedProducts.indices, id: \.self) { index in
+                    Circle()
+                        .fill(.white.opacity(index == selectedProductIndex ? 0.96 : 0.38))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, GravitySpacing.space4)
+        }
     }
 
     private var productDeck: some View {
@@ -214,9 +260,9 @@ struct ShopPostFeedCard: View {
 
             Spacer(minLength: GravitySpacing.space6)
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .padding(.trailing, GravitySpacing.space6)
+            Image(systemName: "heart")
+                .font(.system(size: 21, weight: .medium))
+                .padding(.trailing, GravitySpacing.space8)
         }
         .padding(GravitySpacing.space6)
         .frame(maxWidth: .infinity)

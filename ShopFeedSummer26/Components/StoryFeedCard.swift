@@ -52,6 +52,7 @@ struct PrototypeFeedbackActions: View {
     var includesOverflow = false
     var includesVolume = false
     var includesThread = true
+    var usesPostActionOrder = false
     var onOverflowTap: (() -> Void)?
     @State private var selectedActions: Set<Action> = []
 
@@ -70,6 +71,10 @@ struct PrototypeFeedbackActions: View {
     }
 
     private var actions: [Action] {
+        if usesPostActionOrder {
+            return [.share, .thread, .like]
+        }
+
         var actions: [Action] = []
         if includesOverflow { actions.append(.more) }
         if includesVolume { actions.append(.volume) }

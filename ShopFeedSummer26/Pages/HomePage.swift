@@ -1075,12 +1075,9 @@ struct HomePage: View {
         // The Watch Canvas cover is a poster-style sphere on white; it
         // carries no card chrome beyond its centered title.
         let hidesFeedbackActions: Bool = {
+            if case .post = entry { return true }
             if case let .story(story) = entry,
                story.id == WorldPrototypeCatalog.canvasID { return true }
-            return false
-        }()
-        let includesVolumeControl: Bool = {
-            if case .post = entry { return true }
             return false
         }()
         let feedbackForegroundColor: Color = usesDarkFeedbackIcons ? .black : .white
@@ -1196,7 +1193,7 @@ struct HomePage: View {
                     foregroundColor: feedbackForegroundColor,
                     appliesShadow: !usesDarkFeedbackIcons,
                     includesOverflow: true,
-                    includesVolume: includesVolumeControl,
+                    includesVolume: false,
                     includesThread: !entry.usesBottomAnchoredWorldChrome,
                     onOverflowTap: { showsBuyerSwitcher = true }
                 )
@@ -1349,9 +1346,9 @@ struct HomePage: View {
             cornerRadius: cornerRadius,
             bottomCornerRadius: bottomCornerRadius,
             foregroundTopPadding: foregroundTopPadding,
-            headerTrailingPadding: 64,
             borderOpacity: borderOpacity,
-            shadowOpacity: shadowOpacity
+            shadowOpacity: shadowOpacity,
+            onOverflowTap: { showsBuyerSwitcher = true }
         )
         .scrollTransition(
             appliesScrollMotion ? .interactive(timingCurve: .circularEaseOut) : .identity,
