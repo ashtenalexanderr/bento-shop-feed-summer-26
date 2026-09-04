@@ -3,6 +3,7 @@ import SwiftUI
 /// Full-height treatment for a real merchant-authored Shop Post.
 struct ShopPostFeedCard: View {
     let post: ShopPost
+    var relatedPosts: [ShopPost] = []
     let merchants: [SampleMerchant]
     let width: CGFloat
     let height: CGFloat
@@ -14,16 +15,33 @@ struct ShopPostFeedCard: View {
     var shadowOpacity: Double = 1
     var onOverflowTap: (() -> Void)?
 
+    @State private var selectedPostIndex = 0
     @State private var selectedProductIndex = 0
     @State private var productDragOffset: CGFloat = 0
 
+    private var postPages: [ShopPost] {
+        [post] + relatedPosts.filter { $0.id != post.id }
+    }
+
+    private var activePost: ShopPost {
+        postPages[min(selectedPostIndex, postPages.count - 1)]
+    }
+
     private var attachedProducts: [ResolvedStoryProduct] {
-        post.productReferences.compactMap { reference in
+        let explicitProducts: [ResolvedStoryProduct] = activePost.productReferences.compactMap { reference in
             guard let merchant = merchants.first(where: { $0.id == reference.merchantID }),
                   let product = merchant.products.first(where: { $0.id == reference.productID }) else {
                 return nil
             }
             return ResolvedStoryProduct(merchant: merchant, product: product)
+        }
+        if !explicitProducts.isEmpty { return explicitProducts }
+
+        guard let merchant = merchants.first(where: { $0.id == activePost.merchant.id }) else {
+            return []
+        }
+        return merchant.products.prefix(3).map {
+            ResolvedStoryProduct(merchant: merchant, product: $0)
         }
     }
 
@@ -42,7 +60,7 @@ struct ShopPostFeedCard: View {
     }
 
     private var fallbackCoverImageName: String {
-        FeedCoverCatalog.fallbackImageName(stableID: "shop-post-\(post.id)")
+        FeedCoverCatalog.fallbackImageName(stableID: "shop-post-\(activePost.id)")
     }
 
     var body: some View {
@@ -96,16 +114,32 @@ struct ShopPostFeedCard: View {
         )
         .contentShape(cardShape)
         .onTapGesture {
-            guard let actionURL = post.actionURL else { return }
+            guard let actionURL = activePost.actionURL else { return }
             UIApplication.shared.open(actionURL)
         }
+        .onChange(of: selectedPostIndex) {
+            selectedProductIndex = 0
+            productDragOffset = 0
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(displayTitle). Post from \(post.merchant.name). \(primaryCopy ?? "")")
+        .accessibilityLabel("\(displayTitle). Post from \(activePost.merchant.name). \(primaryCopy ?? "")")
+    }
+
+    private var media: some View {
+        TabView(selection: $selectedPostIndex) {
+            ForEach(Array(postPages.enumerated()), id: \.element.id) { index, page in
+                mediaPage(page, playsVideo: isActive && selectedPostIndex == index)
+                    .frame(width: width, height: height)
+                    .clipped()
+                    .tag(index)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
     }
 
     @ViewBuilder
-    private var media: some View {
-        switch post.media {
+    private func mediaPage(_ page: ShopPost, playsVideo: Bool) -> some View {
+        switch page.media {
         case let .video(url, posterURL, _, _):
             ZStack {
                 if let posterURL {
@@ -113,7 +147,7 @@ struct ShopPostFeedCard: View {
                 } else {
                     fallbackCover
                 }
-                if isActive {
+                if playsVideo {
                     LoopingVideoPlayer(url: url)
                         .transition(.opacity)
                 }
@@ -160,7 +194,7 @@ struct ShopPostFeedCard: View {
 
             HStack(spacing: GravitySpacing.space10) {
                 merchantLogo
-                Text(post.merchant.name)
+                Text(activePost.merchant.name)
                     .font(.system(size: 17, weight: .semibold))
                     .lineLimit(1)
             }
@@ -195,11 +229,11 @@ struct ShopPostFeedCard: View {
 
     @ViewBuilder
     private var postPagination: some View {
-        if attachedProducts.count > 1 {
+        if postPages.count > 1 {
             HStack(spacing: GravitySpacing.space6) {
-                ForEach(attachedProducts.indices, id: \.self) { index in
+                ForEach(postPages.indices, id: \.self) { index in
                     Circle()
-                        .fill(.white.opacity(index == selectedProductIndex ? 0.96 : 0.38))
+                        .fill(.white.opacity(index == selectedPostIndex ? 0.96 : 0.38))
                         .frame(width: 6, height: 6)
                 }
             }
@@ -328,7 +362,7 @@ struct ShopPostFeedCard: View {
 
     @ViewBuilder
     private var collectionPreview: some View {
-        if post.merchant.id == "house-of-errors" {
+        if activePost.merchant.id == "house-of-errors" {
             let assets = [
                 "house-of-errors-product-1",
                 "house-of-errors-product-2",
@@ -362,14 +396,14 @@ struct ShopPostFeedCard: View {
 
     @ViewBuilder
     private var merchantLogo: some View {
-        if post.merchant.id == "house-of-errors" {
+        if activePost.merchant.id == "house-of-errors" {
             Image("house-of-errors-avatar")
                 .resizable()
                 .scaledToFill()
                 .frame(width: 44, height: 44)
                 .clipShape(Circle())
                 .overlay { Circle().strokeBorder(.white.opacity(0.34), lineWidth: 0.5) }
-        } else if post.merchant.id == "kith" {
+        } else if activePost.merchant.id == "kith" {
             Image("merchant-wordmark-kith")
                 .resizable()
                 .scaledToFit()
@@ -378,7 +412,7 @@ struct ShopPostFeedCard: View {
                 .background(.black)
                 .clipShape(Circle())
                 .overlay { Circle().strokeBorder(.white.opacity(0.34), lineWidth: 0.5) }
-        } else if let logoURL = post.merchant.logoURL {
+        } else if let logoURL = activePost.merchant.logoURL {
             postImage(url: logoURL, contentMode: .fit)
                 .padding(7)
                 .frame(width: 44, height: 44)
@@ -395,7 +429,7 @@ struct ShopPostFeedCard: View {
     }
 
     private var merchantInitials: String {
-        post.merchant.name
+        activePost.merchant.name
             .split(separator: " ")
             .prefix(3)
             .compactMap(\.first)
@@ -405,14 +439,14 @@ struct ShopPostFeedCard: View {
     }
 
     private var primaryCopy: String? {
-        [post.caption, post.subtitle]
+        [activePost.caption, activePost.subtitle]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty && $0 != displayTitle }
     }
 
     private var displayTitle: String {
-        let title = post.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return title.flatMap { $0.isEmpty ? nil : $0 } ?? post.merchant.name
+        let title = activePost.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.flatMap { $0.isEmpty ? nil : $0 } ?? activePost.merchant.name
     }
 
     private func postImage(

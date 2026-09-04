@@ -65,6 +65,7 @@ extension FeedStory {
 
 extension FeedEntry {
     var usesBottomAnchoredWorldChrome: Bool {
+        if case .tryOn = self { return true }
         if case .tryFaves = self { return true }
         guard case .story(let story) = self, story.format == .world else { return false }
         return !story.rendersAsMerchantCard

@@ -1091,7 +1091,9 @@ struct HomePage: View {
                 height: layout.cardHeight,
                 foregroundTopPadding: layout.foregroundTopPadding,
                 titleTrailingPadding: 64,
-                scrollPinnedTitleTop: layout.pinnedTitleTop
+                worldChromeVisibleBottom: layout.viewportHeight
+                    - FeedCardStyle.bottomNavigationClearance
+                    + 17
             ) {
                 coordinator.resetScrollState()
                 coordinator.pushRoute(.tryOnStudio)
@@ -1339,6 +1341,7 @@ struct HomePage: View {
         let appliesScrollMotion = !motionIsReduced && scrollMotionEnabled
         return ShopPostFeedCard(
             post: post,
+            relatedPosts: postCarouselPages(excluding: post.id),
             merchants: merchants,
             width: width,
             height: height,
@@ -1367,6 +1370,13 @@ struct HomePage: View {
             appliesScrollMotion ? SpringPreset.responsive : nil,
             value: visibleStoryID
         )
+    }
+
+    private func postCarouselPages(excluding postID: String) -> [ShopPost] {
+        feedEntries.compactMap { entry in
+            guard case let .post(post) = entry, post.id != postID else { return nil }
+            return post
+        }
     }
 
     private var feedBackdropColors: [String: Color] {
