@@ -106,12 +106,34 @@ struct WorldDefinition: Identifiable, Hashable {
     let paths: [WorldPath]
 }
 
+enum MissionDisposition: String, CaseIterable, Hashable {
+    case owned
+    case rent
+    case buy
+
+    var label: String {
+        switch self {
+        case .owned: "Have it"
+        case .rent: "Rent"
+        case .buy: "Buy"
+        }
+    }
+}
+
+struct MissionDecision: Hashable {
+    let stepID: String
+    let disposition: MissionDisposition
+    let productID: String?
+}
+
 struct WorldState: Hashable {
     var activeExperience: WorldExperienceForm
     var savedProductIDs: Set<String> = []
     var rejectedProductIDs: Set<String> = []
     var viewedProductIDs: Set<String> = []
     var completedMissionSteps: Set<String> = []
+    var missionDecisions: [String: MissionDecision] = [:]
+    var missionSelectedProductIDs: [String: String] = [:]
     var instructions: [String] = []
     var selectedProductID: String?
 }
@@ -123,6 +145,9 @@ enum WorldAction: Hashable {
     case saveProduct(String)
     case rejectProduct(String)
     case selectProduct(String)
+    case selectMissionProduct(stepID: String, productID: String)
+    case setMissionDecision(MissionDecision)
+    case clearMissionDecision(String)
     case toggleMissionStep(String)
     case steer(String)
 }
@@ -177,6 +202,27 @@ final class WorldSession {
         case .selectProduct(let id):
             state.selectedProductID = id
             state.viewedProductIDs.insert(id)
+        case .selectMissionProduct(let stepID, let productID):
+            state.missionSelectedProductIDs[stepID] = productID
+            state.viewedProductIDs.insert(productID)
+        case .setMissionDecision(let decision):
+            if let previous = state.missionDecisions[decision.stepID],
+               previous.disposition == .buy,
+               let productID = previous.productID {
+                state.savedProductIDs.remove(productID)
+            }
+            state.missionDecisions[decision.stepID] = decision
+            state.completedMissionSteps.insert(decision.stepID)
+            if decision.disposition == .buy, let productID = decision.productID {
+                state.savedProductIDs.insert(productID)
+            }
+        case .clearMissionDecision(let stepID):
+            if let decision = state.missionDecisions.removeValue(forKey: stepID),
+               decision.disposition == .buy,
+               let productID = decision.productID {
+                state.savedProductIDs.remove(productID)
+            }
+            state.completedMissionSteps.remove(stepID)
         case .toggleMissionStep(let id):
             if state.completedMissionSteps.contains(id) {
                 state.completedMissionSteps.remove(id)
@@ -337,6 +383,10 @@ enum WorldPrototypeCatalog {
             context.set(WorldFact(key: "mood", value: "warm and sculptural", source: .observed, scope: .local))
         case missionID:
             context.set(WorldFact(key: "trip", value: "ski weekend", source: .stated, scope: .local))
+            context.set(WorldFact(key: "mountain", value: "Whistler", source: .inferred, scope: .local))
+            context.set(WorldFact(key: "dates", value: "Feb 20–23", source: .inferred, scope: .local))
+            context.set(WorldFact(key: "ability", value: "Advanced", source: .observed, scope: .subject))
+            context.set(WorldFact(key: "travel", value: "Flying", source: .inferred, scope: .local))
         default:
             context.set(WorldFact(key: "goal", value: "getting back into running", source: .stated, scope: .local))
         }

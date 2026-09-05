@@ -74,7 +74,9 @@ cards, and merchant-authored posts; enabled Worlds remain separately managed.
   the exact assortment even though they are not in the authored catalog.
 - `WorldDomain.swift` owns World identity, context, lifetime, session state, and
   preference persistence. Parent/child relationships remain separate from
-  identity.
+  identity. Mission state now records a product selection and an owned, rent,
+  or buy decision per readiness step rather than treating completion as an
+  independent checkbox.
 - `CanvasAgentWorldDestination.swift` owns the Watch Canvas presentation,
   steering, shared chrome alignment, and feed-cover Canvas preview.
 - `CanvasAgentInfiniteProductCanvas.swift` is the source-aligned Canvas engine
@@ -86,6 +88,12 @@ cards, and merchant-authored posts; enabled Worlds remain separately managed.
   imagery, and PDP destinations.
 - `WorldExperienceViews.swift` contains the remaining lightweight World forms;
   Canvas and Spatial no longer share that implementation file.
+- The Ski weekend Mission World is now an editable readiness plan. Compact
+  context menus capture mountain, dates, ability, and travel method; expandable
+  sections join authentic catalog products to owned/rent/buy decisions; and a
+  live packing plan summarizes the choices. Hard gear combines the canonical
+  setup shelf with its related all-mountain ski shelf, while the remaining
+  sections retrieve matching products from the merged catalog.
 - `SpatialARWorldDestination.swift` owns the camera-first Spatial destination:
   a live ARKit surface on supported iPhones with a looping room-film fallback
   in Simulator, a floor-finding reticle, a swipeable product picker, place and
@@ -241,7 +249,7 @@ New Swift files need `xcodegen generate` before they reach the target.
 
 The clean simulator build, personalized-feed validation, product-budget
 validation, and `git diff --check` pass. The debug app product is approximately
-`184164 KB` against the enforced `184320 KB` budget, so bundle headroom remains
+`183844 KB` against the enforced `184320 KB` budget, so bundle headroom remains
 very narrow. Existing unrelated Swift concurrency warnings may remain.
 
 Driving the simulator for visual checks: the device screen is the first
