@@ -1,6 +1,14 @@
 import SwiftUI
 
+struct SuggestedCollectionsPresentation: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let collections: [FeedStory]
+}
+
 enum FeedEntry: Identifiable {
+    case suggestedCollections(SuggestedCollectionsPresentation)
     case tryOn
     case tryFaves
     case seasonalSavings
@@ -9,6 +17,7 @@ enum FeedEntry: Identifiable {
 
     var id: String {
         switch self {
+        case let .suggestedCollections(presentation): presentation.id
         case .tryOn: TryOnExperience.cardID
         case .tryFaves: TryFavesExperience.cardID
         case .seasonalSavings: "seasonal-savings"
@@ -90,6 +99,8 @@ enum FeedCompositionFilter {
     ) -> [FeedEntry] {
         entries.filter { entry in
             switch entry {
+            case .suggestedCollections:
+                enabledKinds.contains(.recommendations)
             case .post:
                 enabledKinds.contains(.posts)
             case .story(let story):

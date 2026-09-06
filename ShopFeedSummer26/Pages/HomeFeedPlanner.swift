@@ -63,6 +63,12 @@ enum HomeFeedPlanner {
         var entries = distribute(stories: stories, posts: posts, buyerID: input.buyer.id, topicID: input.topic.id)
         entries = WorldPrototypeFeedOrdering.prioritizeTryOn(in: entries, enabledWorldIDs: input.enabledWorldIDs)
         entries = WorldPrototypeFeedOrdering.insertTryFaves(in: entries, enabledWorldIDs: input.enabledWorldIDs)
+        if let suggestedCollections = suggestedCollections(for: input) {
+            entries.insert(
+                .suggestedCollections(suggestedCollections),
+                at: min(1, entries.count)
+            )
+        }
         let availableContentCounts = contentCounts(in: entries, enabledWorldIDs: input.enabledWorldIDs)
         entries = FeedCompositionFilter.apply(to: entries, enabledKinds: input.enabledContentKinds, enabledWorldIDs: input.enabledWorldIDs)
         if input.seasonalPlacement == .feedCard {
@@ -84,6 +90,7 @@ enum HomeFeedPlanner {
     ) -> [FeedContentKind: Int] {
         entries.reduce(into: [:]) { counts, entry in
             let kind: FeedContentKind? = switch entry {
+            case .suggestedCollections: .recommendations
             case .post: .posts
             case .story(let story): enabledWorldIDs.contains(story.id)
                 ? nil
@@ -94,6 +101,66 @@ enum HomeFeedPlanner {
             }
             if let kind { counts[kind, default: 0] += 1 }
         }
+    }
+
+    private static func suggestedCollections(
+        for input: Input
+    ) -> SuggestedCollectionsPresentation? {
+        guard input.buyer.id == "luke", input.topic.id == "for-you" else { return nil }
+
+        let definitions: [(id: String, intent: String, title: String, subtitle: String, accent: String)] = [
+            (
+                id: "caps-in-rotation",
+                intent: "hats",
+                title: "Caps in rotation",
+                subtitle: "Headwear selected around your streetwear taste",
+                accent: "#587F91"
+            ),
+            (
+                id: "warm-light-small-footprint",
+                intent: "lamps",
+                title: "Warm light, small footprint",
+                subtitle: "Sculptural lighting for the spaces you’re finishing",
+                accent: "#9B6B54"
+            ),
+            (
+                id: "trail-ready-runners",
+                intent: "trail shoes",
+                title: "Trail-ready runners",
+                subtitle: "Technical pairs from shops already in your orbit",
+                accent: "#586B5B"
+            ),
+        ]
+
+        let collections = definitions.compactMap { definition -> FeedStory? in
+            guard let source = CustomFeedRecommendationEngine.stories(
+                intent: definition.intent,
+                buyer: input.buyer,
+                catalog: input.catalog,
+                merchants: input.merchants,
+                followedMerchants: input.followedMerchants
+            ).first else { return nil }
+
+            return FeedStory(
+                id: "custom-feed-suggested-\(definition.id)",
+                eyebrow: "Suggested collection",
+                title: definition.title,
+                subtitle: definition.subtitle,
+                format: .shortlist,
+                topicKeys: source.topicKeys,
+                accentHex: definition.accent,
+                coverImageName: nil,
+                destinationLabel: "Shop all",
+                products: source.products
+            )
+        }
+        guard collections.count >= 2 else { return nil }
+        return SuggestedCollectionsPresentation(
+            id: "suggested-collections",
+            title: "Suggested collections",
+            subtitle: "Handpicked from what you’re into.",
+            collections: collections
+        )
     }
 
     private static func stories(for input: Input) -> [FeedStory] {

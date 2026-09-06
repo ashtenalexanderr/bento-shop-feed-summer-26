@@ -35,6 +35,7 @@
 		19A9C3504C4D7BB39D703E4E /* caraway-feed.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 5C93BF5FAA2E9F9509E17322 /* caraway-feed.mp4 */; };
 		1A3E9B20593B0BE7E22C48C4 /* HomePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F2C1A0A84FDDE28DC408251 /* HomePage.swift */; };
 		1B22F19322E62C2BD328E135 /* TopicDetailPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CEF99F49C84054848107162 /* TopicDetailPage.swift */; };
+		204193C47C04797D57AFB531 /* HomeUtilityPrototypeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C19A304A47A9AE92E877FF8 /* HomeUtilityPrototypeCards.swift */; };
 		2291C957EA6631EFEB937359 /* Shopify Sans-Light.otf in Resources */ = {isa = PBXBuildFile; fileRef = 602EC1E5E7BEEEE5ED403D0E /* Shopify Sans-Light.otf */; };
 		22F5B60665F7DD9253A167B5 /* BuyerFeedNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3506BBA3CAF16F94A6C934 /* BuyerFeedNavigationBar.swift */; };
 		2338DF902EB6C4BE9AA20CA6 /* SpringPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49BBF6216CEAF899FCF335C /* SpringPresets.swift */; };
@@ -97,7 +98,6 @@
 		6B769D7CE062065724052DB4 /* SearchResultCount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E66AF39E36586723035423 /* SearchResultCount.swift */; };
 		6B959753F1BE4FD9E41B103C /* StoryDetailPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BC531098602EBF12CF58A9 /* StoryDetailPage.swift */; };
 		6B962694A2D5A76349334EE4 /* DeliveryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D0AC7FA7992C3C84A593D9 /* DeliveryCard.swift */; };
-		7E1A2B3C4D5E6F7081920A1B /* HomeUtilityPrototypeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2B3C4D5E6F708192A0B1C2 /* HomeUtilityPrototypeCards.swift */; };
 		701D9E180841F535074E77E3 /* GTStandard-LSemibold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 70B6EA62F63A7A6F39EC015E /* GTStandard-LSemibold.otf */; };
 		73A8C5E857F8C8D23B0AB657 /* CartPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D3502071F386F04F63B93A6 /* CartPage.swift */; };
 		742ADA927F28DE885852A247 /* Shopify Sans-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = EAC89D255BADA19142CCCFBF /* Shopify Sans-Regular.otf */; };
@@ -123,10 +123,10 @@
 		9A3E057AF607E2C757D6BA98 /* GravityIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = D980F4F049B8BD00365E5845 /* GravityIcon.swift */; };
 		9A9DB1D994C3D7CF9E1F4471 /* ShopPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64EC5E34A29A38445CB9628B /* ShopPostService.swift */; };
 		9B4BAF4923D6C00594F5C5CA /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACD1E2168C3779609CA48BE /* CachedAsyncImage.swift */; };
+		9C303CD037CB8D83360646A1 /* FeedCreationFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0457AA3F2A1D05AFA3BDDC45 /* FeedCreationFlow.swift */; };
 		9C9C4E768F481DBBF61445E2 /* InjectableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B96694C6EED1830A1ED8C4FF /* InjectableView.swift */; };
 		A041C240A789B223C9DAE295 /* AgentSuggestionChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72ABAA98385BA17C78F00DC8 /* AgentSuggestionChips.swift */; };
 		A5A9C4A567FFE85BD6D90EEC /* WarmLightingBluDotBrandCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E1A573A940E934F04C9D35 /* WarmLightingBluDotBrandCard.swift */; };
-		FC1000000000000000000001 /* FeedCreationFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC2000000000000000000001 /* FeedCreationFlow.swift */; };
 		A7E88F039954B5B789BC28C5 /* HolidayFeedHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81893883E934BAC0B3B769E2 /* HolidayFeedHeader.swift */; };
 		A82E10EDFA71EA5612CAC292 /* PurlTuneRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206CA1295E8B6FC39644D1DE /* PurlTuneRuntime.swift */; };
 		A9281D381BB9DCCE93A992BA /* ShopSearchClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CFB55D997C32D0573A50172 /* ShopSearchClient.swift */; };
@@ -146,6 +146,7 @@
 		C110582CCA413B4DB7B90B09 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0966A1235C1A0B0C37736A67 /* ContentView.swift */; };
 		C1A31E4D266871012763158B /* kith-post.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 759E14A41B88DE854616D974 /* kith-post.mp4 */; };
 		C2C1E1D14E11D3C0A8527653 /* RemoteMerchantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A91B29B5DF530EFF5D216F1 /* RemoteMerchantService.swift */; };
+		C2CCA16A0728B377D7E946A7 /* SuggestedCollectionsFeedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6BC0101378960416952901 /* SuggestedCollectionsFeedCard.swift */; };
 		C6990F004D62EC84E1CC3488 /* FeedBundleLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8E00A10734272579AE1E29B /* FeedBundleLoader.swift */; };
 		C8E812581F6F86E0A4C51E53 /* rcout-knit.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 460DB87F92FFE7682179B32F /* rcout-knit.mp4 */; };
 		C9A6DC48035ED306A471F9CE /* MerchantCollectionFeedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54E1ECE0C5E966F35189CB65 /* MerchantCollectionFeedCard.swift */; };
@@ -198,6 +199,7 @@
 /* Begin PBXFileReference section */
 		026F95AEE45A53AF8C50203B /* Shopify Sans-Bold Italic.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Shopify Sans-Bold Italic.otf"; sourceTree = "<group>"; };
 		0431B7327888F447B9C4106E /* SettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPage.swift; sourceTree = "<group>"; };
+		0457AA3F2A1D05AFA3BDDC45 /* FeedCreationFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedCreationFlow.swift; sourceTree = "<group>"; };
 		04CE0AD84A963D9B87DAC7A6 /* ProductCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductCard.swift; sourceTree = "<group>"; };
 		06B1902261AD08A0770FD0F2 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		078329B43E78A07491F5DBE3 /* streetwear-staples.mp4 */ = {isa = PBXFileReference; path = "streetwear-staples.mp4"; sourceTree = "<group>"; };
@@ -217,6 +219,7 @@
 		16A32D3620048BECC91CDCAC /* FloatingPanelSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPanelSheet.swift; sourceTree = "<group>"; };
 		17A588205457B7125D9C517E /* ConversationStartersClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStartersClient.swift; sourceTree = "<group>"; };
 		1900539FD305AC1A165342BB /* TryFavesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TryFavesSheet.swift; sourceTree = "<group>"; };
+		1C19A304A47A9AE92E877FF8 /* HomeUtilityPrototypeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeUtilityPrototypeCards.swift; sourceTree = "<group>"; };
 		1D89BFFAA56AD3F6CD49A24D /* BottomNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomNavBar.swift; sourceTree = "<group>"; };
 		1EC062D214843DE30A2AA75A /* DecartTryOnSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecartTryOnSession.swift; sourceTree = "<group>"; };
 		2031C250C27B23086631BFD2 /* PurlTuneTokenOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurlTuneTokenOptions.swift; sourceTree = "<group>"; };
@@ -301,7 +304,6 @@
 		9385ED9BCD58A62201ADCC23 /* CanvasAgentWorldDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasAgentWorldDestination.swift; sourceTree = "<group>"; };
 		93C7B3807AD8D7156AF55F78 /* SampleMerchant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleMerchant.swift; sourceTree = "<group>"; };
 		93D0AC7FA7992C3C84A593D9 /* DeliveryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeliveryCard.swift; sourceTree = "<group>"; };
-		8F2B3C4D5E6F708192A0B1C2 /* HomeUtilityPrototypeCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeUtilityPrototypeCards.swift; sourceTree = "<group>"; };
 		95D64725EFF88C7418AC33BE /* SearchHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchHeader.swift; sourceTree = "<group>"; };
 		965B56D2AD1C84866FFA8DAA /* TryFavesStageColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TryFavesStageColors.swift; sourceTree = "<group>"; };
 		96B6534412DD17581C329BC2 /* FeedNavigationStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedNavigationStyle.swift; sourceTree = "<group>"; };
@@ -311,7 +313,6 @@
 		9D0851BCA097AC2307D565FF /* ProductDetailCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailCard.swift; sourceTree = "<group>"; };
 		9E7378974583A27B80E0EFB3 /* PersonalizedFeedCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizedFeedCatalog.swift; sourceTree = "<group>"; };
 		9F179369E1B716061E9FD958 /* ComposerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerBar.swift; sourceTree = "<group>"; };
-		FC2000000000000000000001 /* FeedCreationFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedCreationFlow.swift; sourceTree = "<group>"; };
 		A287E60C566EBF6A7F6CC6B3 /* GTStandard-MMedium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "GTStandard-MMedium.otf"; sourceTree = "<group>"; };
 		A3EB1852CA445A1A84EA1B4F /* TypewriterText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypewriterText.swift; sourceTree = "<group>"; };
 		A610F9F42A69B09535D4BE1E /* GiftGuideCreationFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GiftGuideCreationFlow.swift; sourceTree = "<group>"; };
@@ -366,6 +367,7 @@
 		EA9B7BEA5251EDBCB9A73B8A /* VerySpecialWatchCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerySpecialWatchCatalog.swift; sourceTree = "<group>"; };
 		EAC89D255BADA19142CCCFBF /* Shopify Sans-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Shopify Sans-Regular.otf"; sourceTree = "<group>"; };
 		EAD44BA187481F6D3D383F71 /* HomeFeedPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeFeedPlanner.swift; sourceTree = "<group>"; };
+		ED6BC0101378960416952901 /* SuggestedCollectionsFeedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestedCollectionsFeedCard.swift; sourceTree = "<group>"; };
 		F0E301D39B0B91316EE529A6 /* UtilityBeltCustomization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityBeltCustomization.swift; sourceTree = "<group>"; };
 		F10B16167B932BDE28BA2B48 /* FeedStory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedStory.swift; sourceTree = "<group>"; };
 		F2CE543A596530FA1FB54679 /* DebugInjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugInjection.swift; sourceTree = "<group>"; };
@@ -613,13 +615,13 @@
 				2ACD1E2168C3779609CA48BE /* CachedAsyncImage.swift */,
 				5459CA6FC9ADF5F66FEA511C /* CategoryTile.swift */,
 				93D0AC7FA7992C3C84A593D9 /* DeliveryCard.swift */,
-				8F2B3C4D5E6F708192A0B1C2 /* HomeUtilityPrototypeCards.swift */,
-				FC2000000000000000000001 /* FeedCreationFlow.swift */,
 				B9D284B4531C1094FD7A9792 /* EvergreenDestinationFeeds.swift */,
+				0457AA3F2A1D05AFA3BDDC45 /* FeedCreationFlow.swift */,
 				7F39B6F46EBC3D657496BF6D /* FloatingBackButton.swift */,
 				16A32D3620048BECC91CDCAC /* FloatingPanelSheet.swift */,
 				6B414620B3EDC53466841BC6 /* HolidayDestinationFeeds.swift */,
 				81893883E934BAC0B3B769E2 /* HolidayFeedHeader.swift */,
+				1C19A304A47A9AE92E877FF8 /* HomeUtilityPrototypeCards.swift */,
 				68957DDA92869BB303188B83 /* LoopingVideoPlayer.swift */,
 				B9F58EB0B320715CD835B076 /* MerchantAvatarView.swift */,
 				54E1ECE0C5E966F35189CB65 /* MerchantCollectionFeedCard.swift */,
@@ -630,6 +632,7 @@
 				7441F231E112580CF7D84C6D /* ShopPostFeedCard.swift */,
 				0F0E1B41F7855616362EB10F /* StoryCardLayouts.swift */,
 				E670AA572DCA2DB88EE8D9C6 /* StoryFeedCard.swift */,
+				ED6BC0101378960416952901 /* SuggestedCollectionsFeedCard.swift */,
 				B1E6AE3B696D0E384D631284 /* TryFavesConfigurationSheet.swift */,
 				6EE3E0126D374E4E5073F57A /* TryFavesFeedCard.swift */,
 				9940B7F73D46B538377EC0B6 /* TryFavesProductTile.swift */,
@@ -943,16 +946,15 @@
 				0EC6F69EB7B7D14036157A35 /* DeepDivePage.swift in Sources */,
 				CD57B8EA0EECF704917FD500 /* DeliveriesPage.swift in Sources */,
 				6B962694A2D5A76349334EE4 /* DeliveryCard.swift in Sources */,
-				7E1A2B3C4D5E6F7081920A1B /* HomeUtilityPrototypeCards.swift in Sources */,
 				69E010471B7070B1F61532D9 /* DeliveryDetailPage.swift in Sources */,
 				AD150EFC21B725F27F3546F5 /* DossierStore.swift in Sources */,
 				F55F66F4CEE6C93DEDEB195F /* EvergreenDestinationFeeds.swift in Sources */,
 				C082ED91CD66059E3ADD91C4 /* ExplorePage.swift in Sources */,
 				F2509F2EDCF5AC5621BA7909 /* FavoritesPage.swift in Sources */,
 				C6990F004D62EC84E1CC3488 /* FeedBundleLoader.swift in Sources */,
+				9C303CD037CB8D83360646A1 /* FeedCreationFlow.swift in Sources */,
 				94BE6F44ACFC1C02F23856CD /* FeedNavigationStyle.swift in Sources */,
 				0C08C13F26335177E2728B05 /* FeedScrollInfrastructure.swift in Sources */,
-				FC1000000000000000000001 /* FeedCreationFlow.swift in Sources */,
 				65CC87D24FABEF9A7510DAF1 /* FeedStory.swift in Sources */,
 				ED762ADBFFBE181954321CE9 /* FeedTopic.swift in Sources */,
 				DDC40523D5C34319AD0C88D6 /* FloatingBackButton.swift in Sources */,
@@ -975,6 +977,7 @@
 				43D9369272ED075B55217438 /* HomeFeedPlanner.swift in Sources */,
 				1A3E9B20593B0BE7E22C48C4 /* HomePage.swift in Sources */,
 				E30DA8088645106108A6FEA4 /* HomeRoute.swift in Sources */,
+				204193C47C04797D57AFB531 /* HomeUtilityPrototypeCards.swift in Sources */,
 				12EC66C26DB004D29E1B43E1 /* HypothesisShelfCatalog.swift in Sources */,
 				9C9C4E768F481DBBF61445E2 /* InjectableView.swift in Sources */,
 				824ADF93916375DD59209CE0 /* KeyboardAnimation.swift in Sources */,
@@ -1024,6 +1027,7 @@
 				6B959753F1BE4FD9E41B103C /* StoryDetailPage.swift in Sources */,
 				EAEE9AD32F574178273E511B /* StoryFeedCard.swift in Sources */,
 				B9941023B1530544D245555F /* StoryTopicPage.swift in Sources */,
+				C2CCA16A0728B377D7E946A7 /* SuggestedCollectionsFeedCard.swift in Sources */,
 				1B22F19322E62C2BD328E135 /* TopicDetailPage.swift in Sources */,
 				F8959E4172C75BEC9A15B753 /* TopicPageBlocks.swift in Sources */,
 				5214052977BAFDB80B763160 /* TopicPageRecipe.swift in Sources */,

@@ -1085,6 +1085,7 @@ struct HomePage: View {
         // The Watch Canvas cover is a poster-style sphere on white; it
         // carries no card chrome beyond its centered title.
         let hidesFeedbackActions: Bool = {
+            if case .suggestedCollections = entry { return true }
             if case .post = entry { return true }
             if case let .story(story) = entry,
                story.id == WorldPrototypeCatalog.canvasID { return true }
@@ -1094,6 +1095,29 @@ struct HomePage: View {
 
         ZStack(alignment: .topTrailing) {
             switch entry {
+        case let .suggestedCollections(presentation):
+            SuggestedCollectionsFeedCard(
+                presentation: presentation,
+                merchants: merchants,
+                width: layout.cardWidth,
+                height: layout.cardHeight,
+                namespace: namespace,
+                cornerRadius: topCornerRadius,
+                bottomCornerRadius: feedCornerRadius,
+                foregroundTopPadding: layout.pinnedTitleTop - GravitySpacing.space24,
+                borderOpacity: 0.12 * chromeOpacity,
+                shadowOpacity: chromeOpacity,
+                onOpenCollection: { collection in
+                    coordinator.resetScrollState()
+                    expandingStoryID = collection.id
+                    coordinator.pushRoute(.customStory(
+                        story: collection,
+                        sourceId: collection.id
+                    ))
+                },
+                onOverflowTap: { showsBuyerSwitcher = true }
+            )
+
         case .tryOn:
             TryOnFeedCard(
                 products: tryOnProducts,
@@ -1392,6 +1416,8 @@ struct HomePage: View {
     private var feedBackdropColors: [String: Color] {
         Dictionary(uniqueKeysWithValues: feedEntries.map { entry in
             let color: Color = switch entry {
+            case let .suggestedCollections(presentation):
+                Color(hex: presentation.collections.first?.accentHex ?? "#557F93")
             case let .story(story): Color(hex: story.accentHex)
             case let .post(post): merchants.first {
                 FeedMerchantIdentity.normalizedName($0.displayName)
@@ -1655,9 +1681,20 @@ struct HomePage: View {
         if topicID == "for-you" {
             feedChromeIsInverted = false
             utilityRailExpansion.reset()
-            let targetID = buyerPreview.selected.showsUtilityShelf
+            let targetID: String?
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-openSuggestedCollections") {
+                targetID = "suggested-collections"
+            } else {
+                targetID = buyerPreview.selected.showsUtilityShelf
+                    ? utilityStoryID
+                    : feedEntries.first?.id
+            }
+#else
+            targetID = buyerPreview.selected.showsUtilityShelf
                 ? utilityStoryID
                 : feedEntries.first?.id
+#endif
             feedScrollState.positionID = targetID
             feedBackdropState.entryID = targetID
             feedChromeTransition.progress = targetID == utilityStoryID ? 0 : 1

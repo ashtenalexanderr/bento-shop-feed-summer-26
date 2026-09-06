@@ -64,6 +64,13 @@ cards, and merchant-authored posts; enabled Worlds remain separately managed.
   and followed content, distributes posts, prioritizes Worlds, applies each
   feed’s composition settings, inserts campaigns, reports available card-type
   counts, and memoizes the resulting render plan.
+- `SuggestedCollectionsFeedCard.swift` is the first reusable format in the
+  expanded feed-card library. A compact `SuggestedCollectionsPresentation`
+  interface carries several real catalog-backed `FeedStory` destinations; the
+  card owns horizontal snapping, neighboring peeks, active surface-color
+  transitions, overflow, and shared-view collection navigation. Luke's For You
+  feed inserts it after the lead story with Caps, warm lighting, and trail-run
+  collections ranked through the same custom-feed catalog retrieval seam.
 - Shopper-created feeds now persist their entered phrase as `customIntent`
   instead of copying placeholder For You story IDs. `CustomFeedRecommendationEngine`
   searches every product in the merged global merchant catalog, requires an
@@ -249,7 +256,7 @@ New Swift files need `xcodegen generate` before they reach the target.
 
 The clean simulator build, personalized-feed validation, product-budget
 validation, and `git diff --check` pass. The debug app product is approximately
-`183844 KB` against the enforced `184320 KB` budget, so bundle headroom remains
+`184048 KB` against the enforced `184320 KB` budget, so bundle headroom remains
 very narrow. Existing unrelated Swift concurrency warnings may remain.
 
 Driving the simulator for visual checks: the device screen is the first
