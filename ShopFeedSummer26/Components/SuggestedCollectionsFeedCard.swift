@@ -137,7 +137,9 @@ struct SuggestedCollectionsFeedCard: View {
             }
             .scrollTargetLayout()
         }
-        .contentMargins(.horizontal, GravitySpacing.space32, for: .scrollContent)
+        // 12pt scroll inset + the page-owned 8pt half-gutter places the
+        // first card on the same 20pt leading line as the avatar and header.
+        .contentMargins(.horizontal, GravitySpacing.space12, for: .scrollContent)
         .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
         .scrollPosition(id: $selectedCollectionID, anchor: .center)
         .frame(height: pageHeight)
