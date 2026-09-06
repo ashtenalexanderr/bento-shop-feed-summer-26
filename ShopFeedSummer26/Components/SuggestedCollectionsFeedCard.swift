@@ -111,10 +111,14 @@ struct SuggestedCollectionsFeedCard: View {
         )
 
         return ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: GravitySpacing.space12) {
+            LazyHStack(spacing: 0) {
                 ForEach(presentation.collections) { collection in
                     collectionCard(collection)
                         .frame(width: pageWidth, height: pageHeight)
+                        // Keep the gutter inside the snapping page. Stack
+                        // spacing can collapse visually when adjacent cards
+                        // fill their full media bounds during a live snap.
+                        .padding(.horizontal, GravitySpacing.space8)
                         .id(collection.id)
                 }
             }
