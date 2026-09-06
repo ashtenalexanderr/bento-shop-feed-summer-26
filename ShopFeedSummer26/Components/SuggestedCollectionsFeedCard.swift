@@ -111,12 +111,12 @@ struct SuggestedCollectionsFeedCard: View {
         // The visual card is deliberately narrower than the viewport. Each
         // snapping page owns half of the gutter so adjacent cards always peek
         // on both sides without their full-bleed media touching.
-        let pageWidth = max(width - 80, 272)
+        let pageWidth = max(width - 64, 288)
         let availableHeight = height
             - foregroundTopPadding
             - FeedCardStyle.foregroundBottomPadding
             - 110
-        let pageHeight = min(availableHeight, max(pageWidth * 1.42, 420))
+        let pageHeight = min(availableHeight, max(pageWidth * 1.52, 450))
 
         return ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
