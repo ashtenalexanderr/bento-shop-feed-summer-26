@@ -10,7 +10,6 @@ struct SuggestedCollectionPresentation: Identifiable {
 struct SuggestedCollectionsPresentation: Identifiable {
     let id: String
     let title: String
-    let subtitle: String
     let collections: [SuggestedCollectionPresentation]
 }
 

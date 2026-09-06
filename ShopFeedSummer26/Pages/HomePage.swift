@@ -1104,7 +1104,7 @@ struct HomePage: View {
                 namespace: namespace,
                 cornerRadius: topCornerRadius,
                 bottomCornerRadius: feedCornerRadius,
-                foregroundTopPadding: layout.pinnedTitleTop - GravitySpacing.space48,
+                foregroundTopPadding: layout.pinnedTitleTop - GravitySpacing.space16,
                 borderOpacity: 0.12 * chromeOpacity,
                 shadowOpacity: chromeOpacity,
                 onOpenCollection: { collection in

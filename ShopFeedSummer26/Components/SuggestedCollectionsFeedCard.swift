@@ -72,17 +72,11 @@ struct SuggestedCollectionsFeedCard: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: GravitySpacing.space12) {
-            VStack(alignment: .leading, spacing: GravitySpacing.space4) {
-                Text(presentation.title)
-                    .font(GravityFont.expressiveSemiBold.fixedFont(size: 24))
-                    .tracking(-0.45)
-                    .lineLimit(1)
-                Text(presentation.subtitle)
-                    .font(GravityFont.regular.fixedFont(size: 13))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(1)
-            }
+        HStack(alignment: .center, spacing: GravitySpacing.space12) {
+            Text(presentation.title)
+                .font(GravityFont.expressiveSemiBold.fixedFont(size: 24))
+                .tracking(-0.45)
+                .lineLimit(1)
 
             Spacer(minLength: GravitySpacing.space8)
 

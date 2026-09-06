@@ -164,7 +164,6 @@ enum HomeFeedPlanner {
         return SuggestedCollectionsPresentation(
             id: "suggested-collections",
             title: "Suggested collections",
-            subtitle: "Handpicked finds from the categories you love.",
             collections: collections
         )
     }
