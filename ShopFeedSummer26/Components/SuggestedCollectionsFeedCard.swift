@@ -193,7 +193,8 @@ struct SuggestedCollectionsFeedCard: View {
 
             if let hero {
                 ProductImageView(product: hero.product, merchant: hero.merchant)
-                    .padding(GravitySpacing.space16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
             } else {
                 Image(systemName: "square.grid.2x2")
                     .font(.system(size: 54, weight: .light))
@@ -201,7 +202,5 @@ struct SuggestedCollectionsFeedCard: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r24, style: .continuous))
-        .padding(GravitySpacing.space12)
-        .padding(.bottom, 0)
     }
 }
