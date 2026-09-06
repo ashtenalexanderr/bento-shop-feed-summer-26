@@ -66,8 +66,9 @@ cards, and merchant-authored posts; enabled Worlds remain separately managed.
   counts, and memoizes the resulting render plan.
 - `SuggestedCollectionsFeedCard.swift` is the first reusable format in the
   expanded feed-card library. A compact `SuggestedCollectionsPresentation`
-  interface carries several real catalog-backed `FeedStory` destinations; the
-  card owns horizontal snapping, neighboring peeks, active surface-color
+  interface carries real catalog-backed `FeedStory` destinations plus authored
+  full-bleed hero media; the card owns horizontal snapping, neighboring peeks,
+  active surface-color
   transitions, overflow, and shared-view collection navigation. Luke's For You
   feed inserts it after the lead story with Caps, warm lighting, and trail-run
   collections ranked through the same custom-feed catalog retrieval seam.

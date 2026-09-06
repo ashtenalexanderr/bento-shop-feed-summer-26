@@ -108,31 +108,34 @@ enum HomeFeedPlanner {
     ) -> SuggestedCollectionsPresentation? {
         guard input.buyer.id == "luke", input.topic.id == "for-you" else { return nil }
 
-        let definitions: [(id: String, intent: String, title: String, subtitle: String, accent: String)] = [
+        let definitions: [(id: String, intent: String, title: String, subtitle: String, accent: String, hero: String)] = [
             (
                 id: "caps-in-rotation",
                 intent: "hats",
                 title: "Caps in rotation",
                 subtitle: "Headwear selected around your streetwear taste",
-                accent: "#587F91"
+                accent: "#587F91",
+                hero: "streetwear-new-1"
             ),
             (
                 id: "warm-light-small-footprint",
                 intent: "lamps",
                 title: "Warm light, small footprint",
                 subtitle: "Sculptural lighting for the spaces you’re finishing",
-                accent: "#9B6B54"
+                accent: "#9B6B54",
+                hero: "topic-warm-lighting-hero"
             ),
             (
                 id: "trail-ready-runners",
                 intent: "trail shoes",
                 title: "Trail-ready runners",
                 subtitle: "Technical pairs from shops already in your orbit",
-                accent: "#586B5B"
+                accent: "#586B5B",
+                hero: "topic-performance-sneaker-hero"
             ),
         ]
 
-        let collections = definitions.compactMap { definition -> FeedStory? in
+        let collections = definitions.compactMap { definition -> SuggestedCollectionPresentation? in
             guard let source = CustomFeedRecommendationEngine.stories(
                 intent: definition.intent,
                 buyer: input.buyer,
@@ -141,24 +144,27 @@ enum HomeFeedPlanner {
                 followedMerchants: input.followedMerchants
             ).first else { return nil }
 
-            return FeedStory(
-                id: "custom-feed-suggested-\(definition.id)",
-                eyebrow: "Suggested collection",
-                title: definition.title,
-                subtitle: definition.subtitle,
-                format: .shortlist,
-                topicKeys: source.topicKeys,
-                accentHex: definition.accent,
-                coverImageName: nil,
-                destinationLabel: "Shop all",
-                products: source.products
+            return SuggestedCollectionPresentation(
+                story: FeedStory(
+                    id: "custom-feed-suggested-\(definition.id)",
+                    eyebrow: "Suggested collection",
+                    title: definition.title,
+                    subtitle: definition.subtitle,
+                    format: .shortlist,
+                    topicKeys: source.topicKeys,
+                    accentHex: definition.accent,
+                    coverImageName: nil,
+                    destinationLabel: "Shop all",
+                    products: source.products
+                ),
+                heroAssetName: definition.hero
             )
         }
         guard collections.count >= 2 else { return nil }
         return SuggestedCollectionsPresentation(
             id: "suggested-collections",
             title: "Suggested collections",
-            subtitle: "Handpicked from what you’re into.",
+            subtitle: "Handpicked finds from the categories you love.",
             collections: collections
         )
     }

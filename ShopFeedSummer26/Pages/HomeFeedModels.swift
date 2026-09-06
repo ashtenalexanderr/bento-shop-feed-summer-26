@@ -1,10 +1,17 @@
 import SwiftUI
 
+struct SuggestedCollectionPresentation: Identifiable {
+    let story: FeedStory
+    let heroAssetName: String
+
+    var id: String { story.id }
+}
+
 struct SuggestedCollectionsPresentation: Identifiable {
     let id: String
     let title: String
     let subtitle: String
-    let collections: [FeedStory]
+    let collections: [SuggestedCollectionPresentation]
 }
 
 enum FeedEntry: Identifiable {

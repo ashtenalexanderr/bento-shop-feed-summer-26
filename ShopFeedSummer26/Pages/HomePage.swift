@@ -1104,7 +1104,7 @@ struct HomePage: View {
                 namespace: namespace,
                 cornerRadius: topCornerRadius,
                 bottomCornerRadius: feedCornerRadius,
-                foregroundTopPadding: layout.pinnedTitleTop - GravitySpacing.space24,
+                foregroundTopPadding: layout.pinnedTitleTop + GravitySpacing.space12,
                 borderOpacity: 0.12 * chromeOpacity,
                 shadowOpacity: chromeOpacity,
                 onOpenCollection: { collection in
@@ -1417,7 +1417,7 @@ struct HomePage: View {
         Dictionary(uniqueKeysWithValues: feedEntries.map { entry in
             let color: Color = switch entry {
             case let .suggestedCollections(presentation):
-                Color(hex: presentation.collections.first?.accentHex ?? "#557F93")
+                Color(hex: presentation.collections.first?.story.accentHex ?? "#557F93")
             case let .story(story): Color(hex: story.accentHex)
             case let .post(post): merchants.first {
                 FeedMerchantIdentity.normalizedName($0.displayName)

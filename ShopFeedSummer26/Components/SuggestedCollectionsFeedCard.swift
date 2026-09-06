@@ -19,9 +19,13 @@ struct SuggestedCollectionsFeedCard: View {
 
     @State private var selectedCollectionID: String?
 
-    private var activeCollection: FeedStory {
+    private var initialCollection: SuggestedCollectionPresentation {
+        presentation.collections[0]
+    }
+
+    private var activeCollection: SuggestedCollectionPresentation {
         presentation.collections.first { $0.id == selectedCollectionID }
-            ?? presentation.collections[0]
+            ?? initialCollection
     }
 
     private var cardShape: UnevenRoundedRectangle {
@@ -36,11 +40,11 @@ struct SuggestedCollectionsFeedCard: View {
 
     var body: some View {
         ZStack {
-            Color(hex: activeCollection.accentHex)
-                .overlay(.black.opacity(0.08))
+            Color(hex: activeCollection.story.accentHex)
+                .overlay(.black.opacity(0.06))
                 .animation(.easeInOut(duration: 0.28), value: activeCollection.id)
 
-            VStack(alignment: .leading, spacing: GravitySpacing.space16) {
+            VStack(alignment: .leading, spacing: GravitySpacing.space32) {
                 header
                 collectionPager
             }
@@ -60,7 +64,7 @@ struct SuggestedCollectionsFeedCard: View {
         )
         .onAppear {
             if selectedCollectionID == nil {
-                selectedCollectionID = presentation.collections.first?.id
+                selectedCollectionID = initialCollection.id
             }
         }
         .accessibilityElement(children: .contain)
@@ -71,12 +75,12 @@ struct SuggestedCollectionsFeedCard: View {
         HStack(alignment: .top, spacing: GravitySpacing.space12) {
             VStack(alignment: .leading, spacing: GravitySpacing.space4) {
                 Text(presentation.title)
-                    .font(GravityFont.expressiveBold.fixedFont(size: 28))
-                    .tracking(-0.6)
+                    .font(GravityFont.expressiveSemiBold.fixedFont(size: 24))
+                    .tracking(-0.45)
                     .lineLimit(1)
                 Text(presentation.subtitle)
-                    .font(GravityFont.regular.fixedFont(size: 15))
-                    .foregroundStyle(.white.opacity(0.70))
+                    .font(GravityFont.regular.fixedFont(size: 13))
+                    .foregroundStyle(.white.opacity(0.72))
                     .lineLimit(1)
             }
 
@@ -104,20 +108,29 @@ struct SuggestedCollectionsFeedCard: View {
     }
 
     private var collectionPager: some View {
-        let pageWidth = max(width - 64, 280)
-        let pageHeight = max(
-            height - foregroundTopPadding - FeedCardStyle.foregroundBottomPadding - 92,
-            420
-        )
+        // The visual card is deliberately narrower than the viewport. Each
+        // snapping page owns half of the gutter so adjacent cards always peek
+        // on both sides without their full-bleed media touching.
+        let pageWidth = max(width - 80, 272)
+        let availableHeight = height
+            - foregroundTopPadding
+            - FeedCardStyle.foregroundBottomPadding
+            - 110
+        let pageHeight = min(availableHeight, max(pageWidth * 1.42, 420))
 
         return ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(presentation.collections) { collection in
-                    collectionCard(collection)
-                        .frame(width: pageWidth, height: pageHeight)
-                        // Keep the gutter inside the snapping page. Stack
-                        // spacing can collapse visually when adjacent cards
-                        // fill their full media bounds during a live snap.
+                    collectionCard(
+                        collection,
+                        width: pageWidth,
+                        height: pageHeight
+                    )
+                        .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous)
+                                .strokeBorder(.white.opacity(0.18), lineWidth: 0.5)
+                        }
                         .padding(.horizontal, GravitySpacing.space8)
                         .id(collection.id)
                 }
@@ -126,85 +139,74 @@ struct SuggestedCollectionsFeedCard: View {
         }
         .contentMargins(.horizontal, GravitySpacing.space32, for: .scrollContent)
         .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
-        .scrollPosition(id: $selectedCollectionID, anchor: .leading)
+        .scrollPosition(id: $selectedCollectionID, anchor: .center)
         .frame(height: pageHeight)
     }
 
-    private func collectionCard(_ collection: FeedStory) -> some View {
-        let resolvedProducts = collection.resolvedProducts(from: merchants)
-        let hero = resolvedProducts.first
-
-        return Button {
+    private func collectionCard(
+        _ collection: SuggestedCollectionPresentation,
+        width: CGFloat,
+        height: CGFloat
+    ) -> some View {
+        Button {
             HapticFeedback.light.fire()
-            onOpenCollection(collection)
+            onOpenCollection(collection.story)
         } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                collectionHero(hero, collection: collection)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack(alignment: .bottomLeading) {
+                collectionMedia(collection)
+                    .frame(width: width, height: height)
+
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0.42),
+                        .init(color: Color(hex: collection.story.accentHex).opacity(0.30), location: 0.66),
+                        .init(color: Color(hex: collection.story.accentHex).opacity(0.96), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
 
                 VStack(alignment: .leading, spacing: GravitySpacing.space6) {
-                    Text(collection.title)
-                        .font(GravityFont.expressiveBold.fixedFont(size: 22))
-                        .tracking(-0.4)
+                    Text(collection.story.title)
+                        .font(GravityFont.expressiveSemiBold.fixedFont(size: 21))
+                        .tracking(-0.3)
                         .lineLimit(1)
-                    Text(collection.subtitle)
+                    Text(collection.story.subtitle)
                         .font(GravityFont.regular.fixedFont(size: 14))
-                        .foregroundStyle(.white.opacity(0.76))
+                        .foregroundStyle(.white.opacity(0.84))
                         .lineLimit(2)
 
-                    Text(collection.destinationLabel)
+                    Text(collection.story.destinationLabel)
                         .font(GravityFont.semiBold.fixedFont(size: 15))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(.white.opacity(0.14), in: Capsule())
-                        .overlay { Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 0.5) }
+                        .frame(height: 46)
+                        .background(.white.opacity(0.16), in: Capsule())
+                        .overlay { Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.5) }
                         .padding(.top, GravitySpacing.space8)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundStyle(.white)
                 .padding(GravitySpacing.space16)
                 .gravityShadow(GravityShadows.feedText)
             }
-            .background(Color(hex: collection.accentHex).opacity(0.74))
-            .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous)
-                    .strokeBorder(.white.opacity(0.16), lineWidth: 0.5)
-            }
+            .frame(width: width, height: height)
+            .contentShape(Rectangle())
             .shadow(color: .black.opacity(0.16), radius: 18, y: 6)
         }
         .buttonStyle(PressScaleButtonStyle(scale: 0.985))
         .matchedTransitionSource(id: collection.id, in: namespace) { source in
             source.clipShape(RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous))
         }
-        .accessibilityLabel("\(collection.title). \(collection.subtitle)")
-        .accessibilityHint(collection.destinationLabel)
+        .accessibilityLabel("\(collection.story.title). \(collection.story.subtitle)")
+        .accessibilityHint(collection.story.destinationLabel)
     }
 
     @ViewBuilder
-    private func collectionHero(
-        _ hero: ResolvedStoryProduct?,
-        collection: FeedStory
-    ) -> some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(hex: collection.accentHex).opacity(0.42),
-                    .white.opacity(0.88),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            if let hero {
-                ProductImageView(product: hero.product, merchant: hero.merchant)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
-            } else {
-                Image(systemName: "square.grid.2x2")
-                    .font(.system(size: 54, weight: .light))
-                    .foregroundStyle(.white.opacity(0.72))
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r24, style: .continuous))
+    private func collectionMedia(_ collection: SuggestedCollectionPresentation) -> some View {
+        Image(collection.heroAssetName)
+            .resizable()
+            .scaledToFill()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
     }
 }
