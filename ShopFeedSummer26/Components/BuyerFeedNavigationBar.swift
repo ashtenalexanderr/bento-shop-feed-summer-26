@@ -76,6 +76,11 @@ struct BuyerFeedNavigationBar: View {
                     proxy.scrollTo(selectedTopicID, anchor: .center)
                 }
             }
+            .onAppear {
+                guard let selectedIndex = topics.firstIndex(where: { $0.id == selectedTopicID }),
+                      selectedIndex > 2 else { return }
+                proxy.scrollTo(selectedTopicID, anchor: .center)
+            }
             .onChange(of: profile.id) { _, _ in
                 proxy.scrollTo(selectedTopicID, anchor: .leading)
             }
@@ -125,29 +130,30 @@ struct BuyerFeedNavigationBar: View {
 
     @ViewBuilder
     private func transitioningLabel(for topic: BuyerFeedTopic) -> some View {
-        let label = Text(topic.label)
-            .font(FeedNavigationStyle.labelFont)
-
         if topic.id == selectedTopicID {
-            label.foregroundStyle(GravityColors.textFixedDark)
+            topicLabel(topic, color: GravityColors.textFixedDark)
         } else if usesInverseStyle {
-            label.foregroundStyle(.white.opacity(0.75))
+            topicLabel(topic, color: .white.opacity(0.75))
         } else if !usesFeedBackdropStyle {
             // Following, Deals, and the resting utility surface are authored
             // on white. Ignore stale feed-card transition progress when those
             // destinations replace the dark media backdrop.
-            label.foregroundStyle(GravityColors.textTertiary)
+            topicLabel(topic, color: GravityColors.textTertiary)
         } else {
             let progress = chromeTransitionState.progress
             ZStack {
-                label
-                    .foregroundStyle(GravityColors.textTertiary)
+                topicLabel(topic, color: GravityColors.textTertiary)
                     .opacity(1 - progress)
-                label
-                    .foregroundStyle(.white.opacity(0.82))
+                topicLabel(topic, color: .white.opacity(0.82))
                     .opacity(progress)
             }
         }
+    }
+
+    private func topicLabel(_ topic: BuyerFeedTopic, color: Color) -> some View {
+        Text(topic.label)
+            .font(FeedNavigationStyle.labelFont)
+            .foregroundStyle(color)
     }
 
 }

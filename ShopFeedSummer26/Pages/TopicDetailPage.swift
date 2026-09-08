@@ -11,20 +11,17 @@ struct TopicPresentedAssortment: Identifiable {
 private final class TopicHeaderScrollState {
     var showsTitle = false
 }
-/// Immersive destination for a tapped feed story. The Figma-derived header
-/// and first commerce rails resolve from the story, so every buyer and topic
-/// shares one presentation instead of branching into profile-specific views.
+/// Immersive story destination with shared header and commerce geometry across buyers.
 struct TopicDetailPage: View {
     let story: FeedStory
     let merchants: [SampleMerchant]
-    /// Resolve the authored assortment once when navigation creates the
-    /// destination. This used to scan the full merchant catalog every time
-    /// SwiftUI evaluated any rail on the page.
+    /// Resolve the authored assortment once when navigation creates the destination.
     private let products: [ResolvedStoryProduct]
     private let topicPresentation: TopicPresentation
+    private let giftGuideRecipient: GiftGuideRecipient
+    private let isNariGiftGuide: Bool
     private let worldDefinition: WorldDefinition?
-    /// The long rails share one stable assortment instead of rebuilding it
-    /// independently for every `productWindow` call.
+    /// Long rails share one stable assortment across product windows.
     private let exploreProducts: [ResolvedStoryProduct]
     @Environment(NavigationCoordinator.self) private var coordinator
     @Environment(\.dismiss) private var dismiss
@@ -40,32 +37,47 @@ struct TopicDetailPage: View {
     init(
         story: FeedStory,
         merchants: [SampleMerchant],
-        enrichmentProducts: [ResolvedStoryProduct] = []
+        enrichmentProducts: [ResolvedStoryProduct] = [],
+        giftRecipientName: String? = nil
     ) {
         self.story = story
         self.merchants = merchants
         topicPresentation = TopicPresentationCatalog.presentation(for: story)
+        giftGuideRecipient = giftRecipientName.map(GiftGuideRecipient.init(name:)) ?? .leon
+        let presentsNariGiftGuide = giftRecipientName?.caseInsensitiveCompare("Nari") == .orderedSame
+        isNariGiftGuide = presentsNariGiftGuide
+        _giftGuideState = State(initialValue: GiftGuidePrototypeState(
+            personalization: presentsNariGiftGuide
+                ? NariProfilePreferences.shared.giftGuideContext
+                : nil,
+            adultRecipient: presentsNariGiftGuide
+        ))
         let definition = WorldPrototypePreferences.shared.isEnabled(story.id)
             ? WorldPrototypeCatalog.definition(for: story.id)
             : nil
         worldDefinition = definition
         _worldSession = State(initialValue: definition.map { WorldSessionStore.shared.session(for: $0) })
         var seenResolvedIDs = Set<String>()
-        let resolved = (story.resolvedProducts(from: merchants) + enrichmentProducts)
+        let baseProducts = presentsNariGiftGuide ? [] : story.resolvedProducts(from: merchants)
+        let resolved = (baseProducts + enrichmentProducts)
             .filter { seenResolvedIDs.insert($0.id).inserted }
         products = resolved
+        let maximumExpandedProductCount = presentsNariGiftGuide ? 96 : Int.max
         var seen = Set<String>()
         var expanded: [ResolvedStoryProduct] = []
         for item in resolved where seen.insert(item.id).inserted {
             expanded.append(item)
+            if expanded.count == maximumExpandedProductCount { break }
         }
         var seenMerchantIDs = Set<String>()
         for item in resolved where seenMerchantIDs.insert(item.merchant.id).inserted {
             for product in item.merchant.products {
+                guard expanded.count < maximumExpandedProductCount else { break }
                 let adjacent = ResolvedStoryProduct(merchant: item.merchant, product: product)
                 guard seen.insert(adjacent.id).inserted else { continue }
                 expanded.append(adjacent)
             }
+            if expanded.count == maximumExpandedProductCount { break }
         }
         exploreProducts = expanded
     }
@@ -237,6 +249,9 @@ struct TopicDetailPage: View {
         }
     }
     private var surfaceColor: Color {
+        if isNariGiftGuide {
+            return Color(hex: NariDestinationCatalog.giftSurfaceHex)
+        }
         if let fixedSurfaceHex = topicPresentation.fixedSurfaceHex {
             return Color(hex: fixedSurfaceHex)
         }
@@ -266,13 +281,27 @@ struct TopicDetailPage: View {
             }
     }
     private var heroVideoURL: URL? {
-        FeedCoverCatalog.presentation(for: story)?.source.videoURL
+        if isNariGiftGuide { return nil }
+        return FeedCoverCatalog.presentation(for: story)?.source.videoURL
             ?? products.lazy.flatMap {
                 $0.product.ambientFilmURLs(merchantID: $0.merchant.id)
             }.first
     }
     private var heroTitle: String {
-        topicPresentation.heroTitleOverride ?? story.title
+        if topicPresentation.usesGiftGuidePrototype {
+            "Gifts for \(giftGuideRecipient.name)"
+        } else {
+            topicPresentation.heroTitleOverride ?? story.title
+        }
+    }
+    private var heroTitleText: Text {
+        if isNariGiftGuide {
+            return Text("Gifts for ")
+                .foregroundColor(.white)
+                + Text("Nari")
+                .foregroundColor(.white.opacity(0.58))
+        }
+        return Text(heroTitle)
     }
     private var pageRecipe: TopicPageRecipe {
         topicPresentation.recipe(
@@ -365,7 +394,13 @@ struct TopicDetailPage: View {
                     .opacity(showsControls ? 1 : 0)
                     .zIndex(10)
                 if topicPresentation.usesGiftGuidePrototype {
-                    GiftGuideSteeringDock(state: giftGuideState)
+                    Group {
+                        if isNariGiftGuide {
+                            NariGiftGuideBottomDock(state: giftGuideState, recipient: giftGuideRecipient)
+                        } else {
+                            GiftGuideSteeringDock(state: giftGuideState, recipient: giftGuideRecipient)
+                        }
+                    }
                         .padding(.bottom, 28)
                         .frame(
                             width: geometry.size.width,
@@ -436,7 +471,19 @@ struct TopicDetailPage: View {
         ZStack(alignment: .topLeading) {
             surfaceColor
             Group {
-                if heroVideoURL != nil {
+                if isNariGiftGuide,
+                   let heroURL = URL(string: NariDestinationCatalog.heroImageURL) {
+                    CachedAsyncImage(url: heroURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        default:
+                            Color(hex: "#C6C3C7")
+                        }
+                    }
+                    .frame(width: width, height: heroHeight)
+                    .clipped()
+                } else if heroVideoURL != nil {
                     // Carry the authored feed film into the destination so the
                     // shared-card transition does not resolve into a frozen
                     // Figma export as soon as navigation completes.
@@ -533,7 +580,7 @@ struct TopicDetailPage: View {
                     .offset(y: -GravitySpacing.space40)
             }
             VStack(alignment: .leading, spacing: GravitySpacing.space12) {
-                Text(heroTitle)
+                heroTitleText
                     .font(FeedEditorialTypography.titleFont)
                     .tracking(FeedEditorialTypography.titleTracking)
                     .lineSpacing(FeedEditorialTypography.titleLineSpacing)
@@ -605,7 +652,11 @@ struct TopicDetailPage: View {
     @ViewBuilder
     private func merchandising(containerWidth: CGFloat) -> some View {
         if topicPresentation.usesGiftGuidePrototype {
-            GiftGuidePrototypeContent(products: products, state: giftGuideState)
+            GiftGuidePrototypeContent(
+                products: isNariGiftGuide ? exploreProducts : products,
+                state: giftGuideState,
+                recipient: giftGuideRecipient
+            )
         } else if let worldDefinition,
                   let worldSession,
                   worldSession.state.activeExperience != .merchandised {
@@ -964,7 +1015,10 @@ struct TopicDetailPage: View {
             HStack(spacing: GravitySpacing.space8) {
                 closeButton
                 if topicPresentation.usesGiftGuidePrototype {
-                    GiftGuideTopicFilterBar(state: giftGuideState)
+                    GiftGuideTopicFilterBar(
+                        state: giftGuideState,
+                        recipient: giftGuideRecipient
+                    )
                 }
                 Spacer()
             }
