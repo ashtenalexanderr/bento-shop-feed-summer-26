@@ -106,7 +106,7 @@ enum FeedCompositionFilter {
         entries.filter { entry in
             switch entry {
             case .suggestedCollections:
-                enabledKinds.contains(.recommendations)
+                enabledKinds.contains(.suggestedCollections)
             case .post:
                 enabledKinds.contains(.posts)
             case .story(let story):

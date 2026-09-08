@@ -90,7 +90,7 @@ enum HomeFeedPlanner {
     ) -> [FeedContentKind: Int] {
         entries.reduce(into: [:]) { counts, entry in
             let kind: FeedContentKind? = switch entry {
-            case .suggestedCollections: .recommendations
+            case .suggestedCollections: .suggestedCollections
             case .post: .posts
             case .story(let story): enabledWorldIDs.contains(story.id)
                 ? nil

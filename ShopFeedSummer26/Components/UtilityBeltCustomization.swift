@@ -48,6 +48,7 @@ final class FeedDestinationPreferences {
 
 enum FeedContentKind: String, CaseIterable, Identifiable {
     case recommendations
+    case suggestedCollections
     case merchantCards
     case posts
 
@@ -55,6 +56,7 @@ enum FeedContentKind: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .recommendations: "Recommendations"
+        case .suggestedCollections: "Suggested collections"
         case .merchantCards: "Merchant cards"
         case .posts: "Posts"
         }
@@ -62,6 +64,7 @@ enum FeedContentKind: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .recommendations: "Topic and product edits"
+        case .suggestedCollections: "Personalized collection carousels"
         case .merchantCards: "Storefront-led assortments"
         case .posts: "Merchant-authored social content"
         }
@@ -69,6 +72,7 @@ enum FeedContentKind: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .recommendations: "sparkles.rectangle.stack"
+        case .suggestedCollections: "rectangle.stack"
         case .merchantCards: "storefront"
         case .posts: "play.rectangle.on.rectangle"
         }

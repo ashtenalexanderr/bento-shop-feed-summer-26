@@ -68,8 +68,9 @@ cards, and merchant-authored posts; enabled Worlds remain separately managed.
   expanded feed-card library. A compact `SuggestedCollectionsPresentation`
   interface carries real catalog-backed `FeedStory` destinations plus authored
   full-bleed hero media; the card owns horizontal snapping, neighboring peeks,
-  active surface-color
-  transitions, overflow, and shared-view collection navigation. Luke's For You
+  active surface-color transitions, overflow, and shared-view collection
+  navigation. It has its own per-feed **Suggested collections** composition
+  toggle rather than inheriting the broader Recommendations toggle. Luke's For You
   feed inserts it after the lead story with Caps, warm lighting, and trail-run
   collections ranked through the same custom-feed catalog retrieval seam.
 - Shopper-created feeds now persist their entered phrase as `customIntent`
