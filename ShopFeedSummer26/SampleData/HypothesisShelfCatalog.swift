@@ -357,9 +357,18 @@ enum HypothesisShelfCatalog {
             evidence: evidence
         )
         let topics = topicPresentation.compactMap { presentation -> BuyerFeedTopic? in
-            let storyIDs = user.shelves
+            var storyIDs = user.shelves
                 .filter { $0.topic == presentation.id }
                 .map(\.id)
+            // Lead Luke's Living feed with its authored room film rather than
+            // pairing that footage with the unrelated bathroom story.
+            if user.id == "luke", presentation.id == "living",
+               let videoStoryIndex = storyIDs.firstIndex(
+                   of: "shelf-luke-2-sculptural-living-room-pieces"
+               ) {
+                let videoStoryID = storyIDs.remove(at: videoStoryIndex)
+                storyIDs.insert(videoStoryID, at: 0)
+            }
             guard !storyIDs.isEmpty else { return nil }
             return BuyerFeedTopic(
                 id: presentation.id,

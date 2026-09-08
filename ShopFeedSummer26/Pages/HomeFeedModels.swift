@@ -1,14 +1,31 @@
 import SwiftUI
 
+struct SuggestedCollectionPresentation: Identifiable {
+    let story: FeedStory
+    let heroAssetName: String
+
+    var id: String { story.id }
+}
+
+struct SuggestedCollectionsPresentation: Identifiable {
+    let id: String
+    let title: String
+    let collections: [SuggestedCollectionPresentation]
+}
+
 enum FeedEntry: Identifiable {
+    case suggestedCollections(SuggestedCollectionsPresentation)
     case tryOn
+    case tryFaves
     case seasonalSavings
     case story(FeedStory)
     case post(ShopPost)
 
     var id: String {
         switch self {
+        case let .suggestedCollections(presentation): presentation.id
         case .tryOn: TryOnExperience.cardID
+        case .tryFaves: TryFavesExperience.cardID
         case .seasonalSavings: "seasonal-savings"
         case let .story(story): story.id
         case let .post(post): "shop-post-\(post.id)"
@@ -33,6 +50,25 @@ enum WorldPrototypeFeedOrdering {
         result.insert(.tryOn, at: min(worldsBeforeTryOn, result.count))
         return result
     }
+
+    /// The Try your faves world is feed-entry-shaped rather than story-shaped,
+    /// so it is inserted here when enabled — mirroring the live try-on card.
+    static func insertTryFaves(
+        in entries: [FeedEntry],
+        enabledWorldIDs: Set<String>
+    ) -> [FeedEntry] {
+        guard enabledWorldIDs.contains(WorldPrototypeCatalog.tryFavesID) else { return entries }
+        var result = entries.filter {
+            if case .tryFaves = $0 { return false }
+            return true
+        }
+        let worldsBefore = WorldPrototypeCatalog.topLevelWorldIDs
+            .prefix { $0 != WorldPrototypeCatalog.tryFavesID }
+            .filter(enabledWorldIDs.contains)
+            .count
+        result.insert(.tryFaves, at: min(worldsBefore, result.count))
+        return result
+    }
 }
 
 extension FeedStory {
@@ -44,6 +80,8 @@ extension FeedStory {
 
 extension FeedEntry {
     var usesBottomAnchoredWorldChrome: Bool {
+        if case .tryOn = self { return true }
+        if case .tryFaves = self { return true }
         guard case .story(let story) = self, story.format == .world else { return false }
         return !story.rendersAsMerchantCard
     }
@@ -67,6 +105,8 @@ enum FeedCompositionFilter {
     ) -> [FeedEntry] {
         entries.filter { entry in
             switch entry {
+            case .suggestedCollections:
+                enabledKinds.contains(.suggestedCollections)
             case .post:
                 enabledKinds.contains(.posts)
             case .story(let story):
@@ -77,6 +117,8 @@ enum FeedCompositionFilter {
             case .tryOn:
                 enabledWorldIDs.contains(WorldPrototypeCatalog.tryOnID)
                     || enabledKinds.contains(.recommendations)
+            case .tryFaves:
+                enabledWorldIDs.contains(WorldPrototypeCatalog.tryFavesID)
             case .seasonalSavings:
                 true
             }
@@ -88,33 +130,37 @@ private struct FeedFeedbackPositionModifier: ViewModifier {
     let entry: FeedEntry
     let layout: FeedViewportLayout
     let showsAnchoredControls: Bool
-    @State private var reservesExploreSpace = false
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if entry.usesBottomAnchoredWorldChrome {
-            let railHeight = max((layout.cardWidth - 64) / 2, 144)
+            // Align the stack's bottom with the title's bottom edge: the
+            // snapped world composition ends 24pt above the card, the rail
+            // sits above that, and the title clears the rail by its 12pt
+            // spacing.
+            let railHeight = if case .tryFaves = entry {
+                TryFavesFeedCard.garmentRailHeight(for: layout.cardWidth)
+            } else {
+                max((layout.cardWidth - 64) / 2, 144)
+            }
             content
-                .padding(.bottom, railHeight + 32 + (reservesExploreSpace ? 56 : 0))
+                .padding(.bottom, railHeight + GravitySpacing.space24 + GravitySpacing.space12)
                 .padding(.trailing, GravitySpacing.space12)
                 .frame(maxHeight: .infinity, alignment: .bottomTrailing)
                 .opacity(showsAnchoredControls ? 1 : 0)
+                // Invisible chrome must not swallow touches: at opacity 0 the
+                // overlay otherwise intercepts taps meant for the card below
+                // it — tapping "Try more" on the try-faves card was opening
+                // the adjacent story's world through this hidden layer.
+                .allowsHitTesting(showsAnchoredControls)
                 .animation(.easeOut(duration: 0.2), value: showsAnchoredControls)
-                .task(id: "\(entry.id)-\(showsAnchoredControls)") {
-                    reservesExploreSpace = false
-                    guard showsAnchoredControls else { return }
-                    try? await Task.sleep(for: .milliseconds(750))
-                    guard !Task.isCancelled, showsAnchoredControls else { return }
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-                        reservesExploreSpace = true
-                    }
-                }
         } else {
+            let pinnedTop = layout.pinnedTitleTop
             content
-                .padding(.top, layout.pinnedTitleTop)
+                .padding(.top, pinnedTop)
                 .padding(.trailing, GravitySpacing.space12)
                 .visualEffect { actions, geometry in
-                    let distance = max(geometry.frame(in: .scrollView).minY - layout.pinnedTitleTop, 0)
+                    let distance = max(geometry.frame(in: .scrollView).minY - pinnedTop, 0)
                     let progress = min(max(1 - distance / 100, 0), 1)
                     return actions.opacity(progress)
                 }

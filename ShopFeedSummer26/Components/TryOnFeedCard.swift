@@ -58,7 +58,7 @@ struct TryOnFeedCard: View {
     let height: CGFloat
     var foregroundTopPadding: CGFloat = GravitySpacing.space20
     var titleTrailingPadding: CGFloat = 0
-    var scrollPinnedTitleTop: CGFloat? = nil
+    var worldChromeVisibleBottom: CGFloat? = nil
     let onTap: () -> Void
 
     var body: some View {
@@ -80,12 +80,23 @@ struct TryOnFeedCard: View {
                     .scaleEffect(0.82, anchor: .bottom)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                VStack(alignment: .leading, spacing: 0) {
-                    scrollAwareTitle
-
-                    Spacer(minLength: GravitySpacing.space16)
-
+                VStack(alignment: .leading, spacing: GravitySpacing.space12) {
+                    Spacer(minLength: 80)
+                    title
                     bottomProductCarousel
+                }
+                // Match every other World card: keep the title and product
+                // rail together at the bottom, lifting that chrome above the
+                // floating navigation only while the card is travelling.
+                .visualEffect { content, proxy in
+                    content.offset(
+                        y: worldChromeVisibleBottom.map { limit in
+                            -max(
+                                0,
+                                proxy.frame(in: .scrollView(axis: .vertical)).maxY - limit
+                            )
+                        } ?? 0
+                    )
                 }
                 .padding(.horizontal, FeedCardStyle.foregroundHorizontalPadding)
                 .padding(.top, foregroundTopPadding)
@@ -106,27 +117,13 @@ struct TryOnFeedCard: View {
     }
 
     private var title: some View {
-        Text("Try it live.")
+        Text("Try it live")
             .feedCardTitleStyle()
             .foregroundStyle(.black)
             .multilineTextAlignment(.leading)
             .lineLimit(3)
             .padding(.trailing, titleTrailingPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var scrollAwareTitle: some View {
-        title
-            .visualEffect { title, proxy in
-                title.offset(
-                    y: max(
-                        0,
-                        (scrollPinnedTitleTop
-                            ?? proxy.frame(in: .scrollView(axis: .vertical)).minY)
-                            - proxy.frame(in: .scrollView(axis: .vertical)).minY
-                    )
-                )
-            }
     }
 
     private var bottomProductCarousel: some View {

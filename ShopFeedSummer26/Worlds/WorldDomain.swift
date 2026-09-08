@@ -106,12 +106,34 @@ struct WorldDefinition: Identifiable, Hashable {
     let paths: [WorldPath]
 }
 
+enum MissionDisposition: String, CaseIterable, Hashable {
+    case owned
+    case rent
+    case buy
+
+    var label: String {
+        switch self {
+        case .owned: "Have it"
+        case .rent: "Rent"
+        case .buy: "Buy"
+        }
+    }
+}
+
+struct MissionDecision: Hashable {
+    let stepID: String
+    let disposition: MissionDisposition
+    let productID: String?
+}
+
 struct WorldState: Hashable {
     var activeExperience: WorldExperienceForm
     var savedProductIDs: Set<String> = []
     var rejectedProductIDs: Set<String> = []
     var viewedProductIDs: Set<String> = []
     var completedMissionSteps: Set<String> = []
+    var missionDecisions: [String: MissionDecision] = [:]
+    var missionSelectedProductIDs: [String: String] = [:]
     var instructions: [String] = []
     var selectedProductID: String?
 }
@@ -123,6 +145,9 @@ enum WorldAction: Hashable {
     case saveProduct(String)
     case rejectProduct(String)
     case selectProduct(String)
+    case selectMissionProduct(stepID: String, productID: String)
+    case setMissionDecision(MissionDecision)
+    case clearMissionDecision(String)
     case toggleMissionStep(String)
     case steer(String)
 }
@@ -177,6 +202,27 @@ final class WorldSession {
         case .selectProduct(let id):
             state.selectedProductID = id
             state.viewedProductIDs.insert(id)
+        case .selectMissionProduct(let stepID, let productID):
+            state.missionSelectedProductIDs[stepID] = productID
+            state.viewedProductIDs.insert(productID)
+        case .setMissionDecision(let decision):
+            if let previous = state.missionDecisions[decision.stepID],
+               previous.disposition == .buy,
+               let productID = previous.productID {
+                state.savedProductIDs.remove(productID)
+            }
+            state.missionDecisions[decision.stepID] = decision
+            state.completedMissionSteps.insert(decision.stepID)
+            if decision.disposition == .buy, let productID = decision.productID {
+                state.savedProductIDs.insert(productID)
+            }
+        case .clearMissionDecision(let stepID):
+            if let decision = state.missionDecisions.removeValue(forKey: stepID),
+               decision.disposition == .buy,
+               let productID = decision.productID {
+                state.savedProductIDs.remove(productID)
+            }
+            state.completedMissionSteps.remove(stepID)
         case .toggleMissionStep(let id):
             if state.completedMissionSteps.contains(id) {
                 state.completedMissionSteps.remove(id)
@@ -240,6 +286,7 @@ enum WorldPrototypeCatalog {
     static let runningID = HypothesisShelfCatalog.performanceSneakerStoryID
     static let canvasID = VerySpecialWatchCatalog.storyID
     static let tryOnID = TryOnExperience.cardID
+    static let tryFavesID = TryFavesExperience.cardID
     static let spatialID = "shelf-luke-2-sculptural-living-room-pieces"
     static let giftingID = HypothesisShelfCatalog.giftGuideStoryID
     static let missionID = "shelf-mikhail-8-high-performance-ski-setup"
@@ -248,6 +295,7 @@ enum WorldPrototypeCatalog {
         runningID,
         canvasID,
         tryOnID,
+        tryFavesID,
         spatialID,
         giftingID,
         missionID,
@@ -298,7 +346,8 @@ enum WorldPrototypeCatalog {
         case runningID: "Shoes, recovery, and smaller running brands for finding a rhythm again."
         case canvasID: "A steerable canvas of distinctive vintage and contemporary watches from Very Special."
         case tryOnID: "Use the live camera to see products from your feed on you."
-        case spatialID: "Place and swap warm sculptural pieces against the room you are building."
+        case tryFavesID: "Style saved tops, bottoms, and shoes on your avatar."
+        case spatialID: "Use the camera to place and compare sculptural pieces in your living room."
         case giftingID: "A living gift guide shaped around Leon, not a generic age bracket."
         case missionID: "A working plan for equipment, mountain layers, travel, and recovery."
         default: ""
@@ -325,11 +374,19 @@ enum WorldPrototypeCatalog {
         case tryOnID:
             context.set(WorldFact(key: "subject", value: "Luke", source: .stated, scope: .subject))
             context.set(WorldFact(key: "input", value: "live camera", source: .stated, scope: .local))
+        case tryFavesID:
+            context.set(WorldFact(key: "subject", value: "Luke", source: .stated, scope: .subject))
+            context.set(WorldFact(key: "input", value: "saved products", source: .observed, scope: .local))
         case spatialID:
             context.set(WorldFact(key: "room", value: "living room", source: .stated, scope: .subject))
+            context.set(WorldFact(key: "input", value: "rear camera and detected surfaces", source: .stated, scope: .local))
             context.set(WorldFact(key: "mood", value: "warm and sculptural", source: .observed, scope: .local))
         case missionID:
             context.set(WorldFact(key: "trip", value: "ski weekend", source: .stated, scope: .local))
+            context.set(WorldFact(key: "mountain", value: "Whistler", source: .inferred, scope: .local))
+            context.set(WorldFact(key: "dates", value: "Feb 20–23", source: .inferred, scope: .local))
+            context.set(WorldFact(key: "ability", value: "Advanced", source: .observed, scope: .subject))
+            context.set(WorldFact(key: "travel", value: "Flying", source: .inferred, scope: .local))
         default:
             context.set(WorldFact(key: "goal", value: "getting back into running", source: .stated, scope: .local))
         }
@@ -366,6 +423,16 @@ enum WorldPrototypeCatalog {
                 primaryExperience: .tryOn,
                 availableExperiences: [.tryOn],
                 lifetime: .ephemeral(days: 21),
+                paths: []
+            ),
+            WorldDefinition(
+                id: tryFavesID,
+                title: "Try on",
+                purpose: .intent,
+                subject: "Luke",
+                primaryExperience: .tryOn,
+                availableExperiences: [.tryOn],
+                lifetime: .persistent,
                 paths: []
             ),
             WorldDefinition(

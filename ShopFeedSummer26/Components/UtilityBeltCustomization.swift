@@ -65,6 +65,7 @@ final class FeedDestinationPreferences {
 
 enum FeedContentKind: String, CaseIterable, Identifiable {
     case recommendations
+    case suggestedCollections
     case merchantCards
     case posts
 
@@ -72,6 +73,7 @@ enum FeedContentKind: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .recommendations: "Recommendations"
+        case .suggestedCollections: "Suggested collections"
         case .merchantCards: "Merchant cards"
         case .posts: "Posts"
         }
@@ -79,6 +81,7 @@ enum FeedContentKind: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .recommendations: "Topic and product edits"
+        case .suggestedCollections: "Personalized collection carousels"
         case .merchantCards: "Storefront-led assortments"
         case .posts: "Merchant-authored social content"
         }
@@ -86,6 +89,7 @@ enum FeedContentKind: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .recommendations: "sparkles.rectangle.stack"
+        case .suggestedCollections: "rectangle.stack"
         case .merchantCards: "storefront"
         case .posts: "play.rectangle.on.rectangle"
         }
@@ -124,6 +128,7 @@ final class FeedCompositionPreferences {
 
 /// Stable identities for cards that can appear in the top-of-feed utility belt.
 enum UtilityBeltItem: String, CaseIterable, Identifiable {
+    case giftGuide
     case orders
     case buyAgain
     case cart
@@ -138,6 +143,7 @@ enum UtilityBeltItem: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .giftGuide: "Start a gift guide"
         case .orders: "Orders"
         case .buyAgain: "Buy again"
         case .cart: "Cart"
@@ -152,6 +158,7 @@ enum UtilityBeltItem: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
+        case .giftGuide: "Create ideas for someone you care about"
         case .orders: "Track active deliveries"
         case .buyAgain: "Quickly reorder past purchases"
         case .cart: "Return to your active cart"
@@ -166,6 +173,7 @@ enum UtilityBeltItem: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .giftGuide: "gift"
         case .orders: "shippingbox"
         case .buyAgain: "arrow.clockwise"
         case .cart: "cart"
@@ -185,13 +193,20 @@ final class UtilityBeltPreferences {
     static let shared = UtilityBeltPreferences()
 
     private static let defaultsKey = "enabledUtilityBeltItems"
+    private static let giftGuideMigrationKey = "didAddGiftGuideUtilityItem"
     private(set) var enabledItems: Set<UtilityBeltItem>
 
     private init() {
         if let stored = UserDefaults.standard.array(forKey: Self.defaultsKey) as? [String] {
             enabledItems = Set(stored.compactMap(UtilityBeltItem.init(rawValue:)))
+            if !UserDefaults.standard.bool(forKey: Self.giftGuideMigrationKey) {
+                enabledItems.insert(.giftGuide)
+                UserDefaults.standard.set(enabledItems.map(\.rawValue).sorted(), forKey: Self.defaultsKey)
+                UserDefaults.standard.set(true, forKey: Self.giftGuideMigrationKey)
+            }
         } else {
             enabledItems = Set(UtilityBeltItem.allCases)
+            UserDefaults.standard.set(true, forKey: Self.giftGuideMigrationKey)
         }
     }
 
@@ -409,6 +424,7 @@ struct HomeFeedControlsSheet: View {
 /// Compact promotional cards matching the shared top-of-feed rail geometry.
 struct UtilityBeltPromotionCard: View {
     enum Kind: CaseIterable {
+        case giftGuide
         case connectShopEmail
         case connectProviders
         case fiveDollarGift
@@ -416,6 +432,7 @@ struct UtilityBeltPromotionCard: View {
 
         var beltItem: UtilityBeltItem {
             switch self {
+            case .giftGuide: .giftGuide
             case .connectShopEmail: .connectShopEmail
             case .connectProviders: .connectProviders
             case .fiveDollarGift: .fiveDollarGift
@@ -495,6 +512,8 @@ struct UtilityBeltPromotionCard: View {
 
     private var title: String {
         switch kind {
+        case .giftGuide:
+            "Find a gift they’ll love"
         case .connectShopEmail, .connectProviders:
             "Connect your email to track more deliveries with Shop"
         case .fiveDollarGift:
@@ -505,15 +524,24 @@ struct UtilityBeltPromotionCard: View {
     }
 
     private var subtitle: String? {
-        kind == .fiveDollarGift ? "7 days left to claim" : nil
+        switch kind {
+        case .giftGuide: "A few details are enough"
+        case .fiveDollarGift: "7 days left to claim"
+        default: nil
+        }
     }
 
     private var eyebrow: String? {
-        kind == .weeklyStoreBonus ? "This week only" : nil
+        switch kind {
+        case .giftGuide: "Gift guide"
+        case .weeklyStoreBonus: "This week only"
+        default: nil
+        }
     }
 
     private var buttonTitle: String {
         switch kind {
+        case .giftGuide: "Get started"
         case .connectShopEmail: "Connect now"
         case .connectProviders: "Connect"
         case .fiveDollarGift: "Claim now"
@@ -524,6 +552,15 @@ struct UtilityBeltPromotionCard: View {
     @ViewBuilder
     private var artwork: some View {
         switch kind {
+        case .giftGuide:
+            ZStack {
+                RoundedRectangle(cornerRadius: GravityRadius.r16, style: .continuous)
+                    .fill(Color(hex: "#EEE8FF"))
+                Image(systemName: "gift.fill")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(Color(hex: "#5433EB"))
+            }
+            .padding(4)
         case .connectShopEmail:
             if let url = Bundle.main.url(
                 forResource: "utility-connect-email",

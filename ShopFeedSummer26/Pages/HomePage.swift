@@ -30,7 +30,7 @@ struct HomePage: View {
     @ObservedObject private var merchantService = RemoteMerchantService.shared
     @ObservedObject private var feedService = RemoteFeedService.shared
     @State private var postService = ShopPostService.shared
-    @State private var buyerPreview = BuyerPreviewStore.shared
+    @State var buyerPreview = BuyerPreviewStore.shared
     @Namespace private var heroNamespace
     @Namespace private var topicSelectionNamespace
     /// Keep the merged catalog stable across body evaluations. Rebuilding the
@@ -38,7 +38,7 @@ struct HomePage: View {
     /// large amount of avoidable main-thread work.
     @State private var merchants: [SampleMerchant] = HomePage.initialMerchantSnapshot
 #if DEBUG
-    @State private var selectedTopicID = ProcessInfo.processInfo.arguments.contains("-openNariFeed")
+    @State var selectedTopicID = ProcessInfo.processInfo.arguments.contains("-openNariFeed")
         || ProcessInfo.processInfo.arguments.contains("-openNariGiftGuide")
         || ProcessInfo.processInfo.arguments.contains("-openNariProfile")
         || ProcessInfo.processInfo.arguments.contains("-openNariDetails")
@@ -46,7 +46,7 @@ struct HomePage: View {
         : "for-you"
     @State private var didOpenNariGiftGuideForQA = false
 #else
-    @State private var selectedTopicID = "for-you"
+    @State var selectedTopicID = "for-you"
 #endif
     /// A drilled-in subcategory story rendered inline so the top bar stays.
     @State private var focusedStoryID: String?
@@ -56,10 +56,15 @@ struct HomePage: View {
     @State private var feedChromeTransition = FeedChromeTransitionState()
     @State private var utilityRailExpansion = UtilityRailExpansionState()
     @State private var utilityBelt = UtilityBeltPreferences.shared
+    @State private var giftGuideBriefStore = GiftGuideBriefStore.shared
+    @State var customFeedStore = CustomFeedStore.shared
     @State private var feedChromeIsInverted = false
     @State private var expandingStoryID: String?
     @State private var categoryMoveDirection = 1
     @State private var showsBuyerSwitcher = false
+    @State private var showsGiftGuideCreation = false
+    @State var showsFeedCreator = false
+    @State var showsFeedManager = false
     @State private var holidayFiltersPinned = false
     @State private var dealsFiltersPinned = false
     @State private var selectedDealFilterBand: DealFilterBand = .all
@@ -78,7 +83,10 @@ struct HomePage: View {
 
     private var topics: [FeedTopic] { PersonalizedFeedCatalog.current.topics }
     private var baseNavigationTopics: [BuyerFeedTopic] {
-        buyerPreview.navigationTopics
+        customFeedStore.navigationTopics(
+            for: buyerPreview.selected.id,
+            authoredTopics: buyerPreview.navigationTopics
+        )
     }
 
     /// Campaign navigation changes the utility destinations at the front of
@@ -200,8 +208,18 @@ struct HomePage: View {
     }
 
     private var feedPlan: HomeFeedPlan {
-        let supportsWorlds = buyerPreview.selected.id == "luke" && selectedTopicID == "for-you"
-        let worldIDs = supportsWorlds ? WorldPrototypePreferences.shared.enabledWorldIDs : []
+        let worldIDs: Set<String> = {
+            guard selectedTopicID == "for-you" else { return [] }
+            let enabled = WorldPrototypePreferences.shared.enabledWorldIDs
+            // Try your faves is buyer-agnostic — it seeds from whichever
+            // buyer is active — so it travels to every buyer's feed. The
+            // other experimental Worlds remain Luke-only prototypes built
+            // on his authored stories.
+            guard buyerPreview.selected.id == "luke" else {
+                return enabled.intersection([WorldPrototypeCatalog.tryFavesID])
+            }
+            return enabled
+        }()
         return HomeFeedPlanner.plan(.init(
             buyer: buyerPreview.selected,
             topic: selectedTopic,
@@ -257,24 +275,8 @@ struct HomePage: View {
         selectedTopicID == "for-you"
     }
 
-    private var utilityPrimaryColor: Color {
-        usesLightUtilityShelf ? .black : .white
-    }
-
-    private var utilitySecondaryColor: Color {
-        utilityPrimaryColor.opacity(0.62)
-    }
-
-    private var utilityControlFill: Color {
-        utilityPrimaryColor.opacity(usesLightUtilityShelf ? 0.07 : 0.14)
-    }
-
-    private var utilitySurfaceFill: Color {
-        usesLightUtilityShelf ? .white : .black.opacity(0.40)
-    }
-
-    private var utilitySurfaceBorder: Color {
-        utilityPrimaryColor.opacity(usesLightUtilityShelf ? 0.08 : 0.18)
+    private var utilityShelfPalette: UtilityShelfPalette {
+        UtilityShelfPalette(onLightSurface: usesLightUtilityShelf)
     }
 
     var body: some View {
@@ -382,6 +384,16 @@ struct HomePage: View {
                 buyerFixtureIssues.isEmpty,
                 "Invalid buyer feed fixtures:\n\(buyerFixtureIssues.joined(separator: "\n"))"
             )
+            let customFeedIssues = CustomFeedRecommendationEngine.validationIssues(
+                buyer: buyerPreview.selected,
+                catalog: PersonalizedFeedCatalog.current,
+                merchants: merchants,
+                followedMerchants: activeRelationshipMerchants
+            )
+            assert(
+                customFeedIssues.isEmpty,
+                "Invalid custom feed recommendations:\n\(customFeedIssues.joined(separator: "\n"))"
+            )
 #endif
         }
         .onChange(of: feedService.revision) { _, _ in
@@ -429,6 +441,26 @@ struct HomePage: View {
         }
         .onChange(of: focusedStoryID) { _, _ in
             syncTopicBackAction()
+        }
+        .fullScreenCover(isPresented: $showsGiftGuideCreation) {
+            GiftGuideCreationFlow(onComplete: completeGiftGuideCreation)
+        }
+        .fullScreenCover(isPresented: $showsFeedCreator) {
+            CreateFeedSheet(onCreate: createFeed)
+                .environment(\.colorScheme, .light)
+        }
+        .sheet(isPresented: $showsFeedManager) {
+            FeedManagerSheet(
+                store: customFeedStore,
+                buyerID: buyerPreview.selected.id,
+                authoredTopics: buyerPreview.navigationTopics,
+                selectedFeedID: selectedTopicID,
+                onCreateNew: openFeedCreatorFromManager,
+                onDeleteSelectedFeed: {
+                    selectedTopicID = "for-you"
+                }
+            )
+            .environment(\.colorScheme, .light)
         }
         .onAppear {
             if visibleStoryID == nil {
@@ -595,11 +627,14 @@ struct HomePage: View {
                             .zIndex(0)
                             .id(utilityStoryID)
                             if forYouUtilityPresentation == .carouselAndFullHeight {
-                                fullHeightUtilityCard(
+                                FullHeightUtilityCard(
                                     width: metrics.compactWidth,
-                                    height: metrics.compactHeight
+                                    height: metrics.compactHeight,
+                                    products: defaultUtilityProducts,
+                                    cartItem: cartSyncItem,
+                                    isActive: visibleStoryID == nil || visibleStoryID == utilityStoryID
                                 )
-                                    .id(utilityStoryID)
+                                .id(utilityStoryID)
                             }
                         }
 
@@ -952,6 +987,15 @@ struct HomePage: View {
 
         return ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(alignment: .top, spacing: GravitySpacing.space10) {
+                if utilityBelt.isEnabled(.giftGuide) {
+                    UtilityBeltPromotionCard(
+                        kind: .giftGuide,
+                        width: railWidth,
+                        height: cardHeight,
+                        onTap: { showsGiftGuideCreation = true }
+                    )
+                }
+
                 if buyerPreview.selected.utility.showsOrders,
                    utilityBelt.isEnabled(.orders) {
                     orderTrackingRailCard(width: railWidth, height: cardHeight)
@@ -1011,7 +1055,10 @@ struct HomePage: View {
                     }
                 }
 
-                ForEach(UtilityBeltPromotionCard.Kind.allCases, id: \.self) { kind in
+                ForEach(
+                    UtilityBeltPromotionCard.Kind.allCases.filter { $0 != .giftGuide },
+                    id: \.self
+                ) { kind in
                     if utilityBelt.isEnabled(kind.beltItem) {
                         UtilityBeltPromotionCard(kind: kind, width: railWidth, height: cardHeight)
                     }
@@ -1042,69 +1089,13 @@ struct HomePage: View {
         width: CGFloat,
         height: CGFloat
     ) -> some View {
-        Button {
-            HapticFeedback.light.fire()
-            coordinator.navigateToPage(4)
-        } label: {
-            VStack(spacing: 0) {
-                HStack(alignment: .top, spacing: 12) {
-                    Text(item.merchant.displayName.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined())
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(utilityPrimaryColor)
-                        .frame(width: 38, height: 38)
-                        .background(utilityControlFill, in: Circle())
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(item.merchant.displayName)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(utilityPrimaryColor)
-                            .lineLimit(1)
-                        Text("Subtotal \(formatPrice(item.product.price))")
-                            .font(.system(size: 14))
-                            .foregroundStyle(utilitySecondaryColor)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 4)
-
-                    ProductImageView(product: item.product, merchant: item.merchant)
-                        .frame(width: 60, height: 60)
-                        .background(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(alignment: .topLeading) {
-                            Text("1")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(utilityPrimaryColor)
-                                .frame(width: 18, height: 18)
-                                .background(utilityControlFill, in: Circle())
-                                .offset(x: -6, y: -6)
-                        }
-                }
-
-                Spacer(minLength: 10)
-
-                Text("Continue to checkout")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(utilityPrimaryColor)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 42)
-                    .background(utilityControlFill, in: Capsule())
-            }
-            .padding(GravitySpacing.space12)
-            .frame(width: width, height: height)
-            .utilityRailSurface(
-                fill: utilitySurfaceFill,
-                border: utilitySurfaceBorder
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var deliveryMerchants: [SampleMerchant] {
-        var seen = Set<String>()
-        return defaultUtilityProducts
-            .map(\.merchant)
-            .filter { seen.insert($0.id).inserted && !$0.products.isEmpty }
+        CartSyncUtilityCard(
+            item: item,
+            width: width,
+            height: height,
+            palette: utilityShelfPalette,
+            onTap: { coordinator.navigateToPage(4) }
+        )
     }
 
     @ViewBuilder
@@ -1112,176 +1103,6 @@ struct HomePage: View {
         OrderTrackingUtilityCard(width: width, height: height) {
             coordinator.navigateToPage(1)
         }
-    }
-
-    /// A second prototype of the same utility information at feed-card scale.
-    /// It deliberately reuses the order, cart, and product primitives from the
-    /// compact rail so the two treatments can be compared without data drift.
-    private func fullHeightUtilityCard(width: CGFloat, height: CGFloat) -> some View {
-        let buyAgain = Array(defaultUtilityProducts.dropFirst(3).prefix(3))
-        let recentlyViewed = Array(defaultUtilityProducts.prefix(4))
-        let isActive = visibleStoryID == nil || visibleStoryID == utilityStoryID
-
-        return ZStack {
-            LinearGradient(
-                colors: [
-                    deliveryMerchants.first?.brandColor.opacity(0.24) ?? Color.black.opacity(0.06),
-                    Color(hex: 0xF2F1ED),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Your Shop right now")
-                    .feedCardTitleStyle()
-                    .foregroundStyle(.black)
-                    .lineLimit(2)
-
-                if let merchant = deliveryMerchants.first {
-                    fullHeightOrderSummary(merchant: merchant)
-                }
-
-                if let cartItem = cartSyncItem {
-                    fullHeightCartSummary(item: cartItem)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Buy again")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.black)
-
-                    HStack(spacing: 8) {
-                        ForEach(buyAgain) { item in
-                            Button {
-                                HapticFeedback.light.fire()
-                                coordinator.pushRoute(
-                                    .product(merchantId: item.merchant.id, productId: item.product.id)
-                                )
-                            } label: {
-                                ProductCard(
-                                    image: nil,
-                                    imageURL: item.product.imageURL,
-                                    priceBadge: formatPrice(item.product.price),
-                                    showFavoriteButton: true
-                                )
-                            }
-                            .buttonStyle(PressScaleButtonStyle())
-                        }
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Recently viewed")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.black)
-
-                    HStack(spacing: 8) {
-                        ForEach(recentlyViewed) { item in
-                            Button {
-                                HapticFeedback.light.fire()
-                                coordinator.pushRoute(
-                                    .product(merchantId: item.merchant.id, productId: item.product.id)
-                                )
-                            } label: {
-                                ProductImageView(product: item.product, merchant: item.merchant)
-                                    .frame(width: 58, height: 58)
-                                    .background(.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                            .strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5)
-                                    }
-                            }
-                            .buttonStyle(PressScaleButtonStyle())
-                        }
-                    }
-                }
-            }
-            .padding(20)
-            .opacity(isActive ? 1 : 0)
-            .animation(.easeInOut(duration: 0.2), value: isActive)
-        }
-        .frame(width: width, height: height, alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous)
-                .strokeBorder(.white.opacity(0.24), lineWidth: 0.5)
-        }
-        .gravityShadow(GravityShadows.medium)
-    }
-
-    private func fullHeightOrderSummary(merchant: SampleMerchant) -> some View {
-        let deliveryProducts = Array(merchant.products.prefix(2))
-
-        return Button {
-            HapticFeedback.light.fire()
-            coordinator.navigateToPage(1)
-        } label: {
-            HStack(spacing: 10) {
-                MerchantLogoImage(merchant: merchant, size: 48)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(merchant.displayName)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.black.opacity(0.58))
-                    Text("Arriving today 3–6pm")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
-                }
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-
-                Spacer(minLength: 2)
-
-                HStack(spacing: 5) {
-                    ForEach(deliveryProducts) { product in
-                        ProductImageView(product: product, merchant: merchant)
-                            .frame(width: 44, height: 44)
-                            .background(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-                    }
-                }
-            }
-            .padding(12)
-            .background(.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        }
-        .buttonStyle(PressScaleButtonStyle())
-    }
-
-    private func fullHeightCartSummary(item: ResolvedStoryProduct) -> some View {
-        Button {
-            HapticFeedback.light.fire()
-            coordinator.navigateToPage(4)
-        } label: {
-            HStack(spacing: 12) {
-                ProductImageView(product: item.product, merchant: item.merchant)
-                    .frame(width: 64, height: 64)
-                    .background(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Cart ready")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.black)
-                    Text("Subtotal \(formatPrice(item.product.price))")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.black.opacity(0.58))
-                }
-
-                Spacer(minLength: 4)
-
-                Text("Checkout")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 13)
-                    .frame(height: 36)
-                    .background(.black, in: Capsule())
-            }
-            .padding(12)
-            .background(.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        }
-        .buttonStyle(PressScaleButtonStyle())
     }
 
     private func utilityProductRail(
@@ -1295,8 +1116,8 @@ struct HomePage: View {
             products: products,
             maximumWidth: maximumWidth,
             height: height,
-            fill: utilitySurfaceFill,
-            border: utilitySurfaceBorder,
+            fill: utilityShelfPalette.surfaceFill,
+            border: utilityShelfPalette.surfaceBorder,
             onSelectProduct: { item in
                 coordinator.pushRoute(
                     .product(
@@ -1338,14 +1159,42 @@ struct HomePage: View {
             if case .tryOn = entry { return true }
             return false
         }()
-        let includesVolumeControl: Bool = {
+        // The Watch Canvas cover is a poster-style sphere on white; it
+        // carries no card chrome beyond its centered title.
+        let hidesFeedbackActions: Bool = {
+            if case .suggestedCollections = entry { return true }
             if case .post = entry { return true }
+            if case let .story(story) = entry,
+               story.id == WorldPrototypeCatalog.canvasID { return true }
             return false
         }()
         let feedbackForegroundColor: Color = usesDarkFeedbackIcons ? .black : .white
 
         ZStack(alignment: .topTrailing) {
             switch entry {
+        case let .suggestedCollections(presentation):
+            SuggestedCollectionsFeedCard(
+                presentation: presentation,
+                merchants: merchants,
+                width: layout.cardWidth,
+                height: layout.cardHeight,
+                namespace: namespace,
+                cornerRadius: topCornerRadius,
+                bottomCornerRadius: feedCornerRadius,
+                foregroundTopPadding: layout.pinnedTitleTop - GravitySpacing.space16,
+                borderOpacity: 0.12 * chromeOpacity,
+                shadowOpacity: chromeOpacity,
+                onOpenCollection: { collection in
+                    coordinator.resetScrollState()
+                    expandingStoryID = collection.id
+                    coordinator.pushRoute(.customStory(
+                        story: collection,
+                        sourceId: collection.id
+                    ))
+                },
+                onOverflowTap: { showsBuyerSwitcher = true }
+            )
+
         case .tryOn:
             TryOnFeedCard(
                 products: tryOnProducts,
@@ -1353,12 +1202,38 @@ struct HomePage: View {
                 height: layout.cardHeight,
                 foregroundTopPadding: layout.foregroundTopPadding,
                 titleTrailingPadding: 64,
-                scrollPinnedTitleTop: layout.pinnedTitleTop
+                worldChromeVisibleBottom: layout.viewportHeight
+                    - FeedCardStyle.bottomNavigationClearance
+                    + 17
             ) {
                 coordinator.resetScrollState()
                 coordinator.pushRoute(.tryOnStudio)
             }
             .matchedTransitionSource(id: TryOnExperience.cardID, in: namespace) { source in
+                source
+                    .background(.clear)
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: feedCornerRadius,
+                            style: .continuous
+                        )
+                    )
+            }
+
+        case .tryFaves:
+            TryFavesFeedCard(
+                width: layout.cardWidth,
+                height: layout.cardHeight,
+                foregroundTopPadding: layout.foregroundTopPadding,
+                titleTrailingPadding: 64,
+                worldChromeVisibleBottom: layout.viewportHeight
+                    - FeedCardStyle.bottomNavigationClearance
+                    + 17
+            ) {
+                coordinator.resetScrollState()
+                coordinator.pushRoute(.tryFavesWorld)
+            }
+            .matchedTransitionSource(id: TryFavesExperience.cardID, in: namespace) { source in
                 source
                     .background(.clear)
                     .clipShape(
@@ -1425,22 +1300,24 @@ struct HomePage: View {
             )
             }
 
-            PrototypeFeedbackActions(
-                layout: .vertical,
-                foregroundColor: feedbackForegroundColor,
-                appliesShadow: !usesDarkFeedbackIcons,
-                includesOverflow: true,
-                includesVolume: includesVolumeControl,
-                includesThread: !entry.usesBottomAnchoredWorldChrome,
-                onOverflowTap: { showsBuyerSwitcher = true }
-            )
-            .positionedFeedFeedback(
-                for: entry,
-                layout: layout,
-                showsAnchoredControls: hasEnteredFullBleedFeed && isSnappedEntry
-            )
-            .allowsHitTesting(hasEnteredFullBleedFeed)
-            .zIndex(4)
+            if !hidesFeedbackActions {
+                PrototypeFeedbackActions(
+                    layout: .vertical,
+                    foregroundColor: feedbackForegroundColor,
+                    appliesShadow: !usesDarkFeedbackIcons,
+                    includesOverflow: true,
+                    includesVolume: false,
+                    includesThread: !entry.usesBottomAnchoredWorldChrome,
+                    onOverflowTap: { showsBuyerSwitcher = true }
+                )
+                .positionedFeedFeedback(
+                    for: entry,
+                    layout: layout,
+                    showsAnchoredControls: hasEnteredFullBleedFeed && isSnappedEntry
+                )
+                .allowsHitTesting(hasEnteredFullBleedFeed)
+                .zIndex(4)
+            }
         }
     }
 
@@ -1489,7 +1366,9 @@ struct HomePage: View {
                     merchants: merchants,
                     width: width,
                     height: height,
-                    titleOverride: nil,
+                    titleOverride: story.id == HypothesisShelfCatalog.giftGuideStoryID
+                        ? "Gifts for \(giftGuideBriefStore.current.recipientName)"
+                        : nil,
                     isActive: story.id == activeFeedStory?.id,
                     showsFooterArrow: false,
                     titleAtTopLeading: true,
@@ -1501,7 +1380,12 @@ struct HomePage: View {
                     foregroundTopPadding: foregroundTopPadding,
                     titleTrailingPadding: 64,
                     scrollPinnedTitleTop: scrollPinnedTitleTop,
-                    showsDelayedExploreButton: story.format == .world,
+                    usesWorldCardComposition: story.format == .world,
+                    // Tuned so the resting composition sits just above the
+                    // floating pill without reading as detached from the card.
+                    worldChromeVisibleBottom: viewportHeight
+                        - FeedCardStyle.bottomNavigationClearance
+                        + 17,
                     // Resizing an active AV layer on every drag frame is the
                     // largest source of hitching. Hold its poster while the
                     // scroll is moving, then resume playback once locked.
@@ -1568,6 +1452,7 @@ struct HomePage: View {
         let appliesScrollMotion = !motionIsReduced && scrollMotionEnabled
         return ShopPostFeedCard(
             post: post,
+            relatedPosts: postCarouselPages(excluding: post.id),
             merchants: merchants,
             width: width,
             height: height,
@@ -1575,9 +1460,9 @@ struct HomePage: View {
             cornerRadius: cornerRadius,
             bottomCornerRadius: bottomCornerRadius,
             foregroundTopPadding: foregroundTopPadding,
-            headerTrailingPadding: 64,
             borderOpacity: borderOpacity,
-            shadowOpacity: shadowOpacity
+            shadowOpacity: shadowOpacity,
+            onOverflowTap: { showsBuyerSwitcher = true }
         )
         .scrollTransition(
             appliesScrollMotion ? .interactive(timingCurve: .circularEaseOut) : .identity,
@@ -1598,9 +1483,18 @@ struct HomePage: View {
         )
     }
 
+    private func postCarouselPages(excluding postID: String) -> [ShopPost] {
+        feedEntries.compactMap { entry in
+            guard case let .post(post) = entry, post.id != postID else { return nil }
+            return post
+        }
+    }
+
     private var feedBackdropColors: [String: Color] {
         Dictionary(uniqueKeysWithValues: feedEntries.map { entry in
             let color: Color = switch entry {
+            case let .suggestedCollections(presentation):
+                Color(hex: presentation.collections.first?.story.accentHex ?? "#557F93")
             case let .story(story): Color(hex: story.accentHex)
             case let .post(post): merchants.first {
                 FeedMerchantIdentity.normalizedName($0.displayName)
@@ -1608,6 +1502,7 @@ struct HomePage: View {
             }?.brandColor ?? Color(hex: "#343038")
             case .seasonalSavings: Color(hex: "#49308F")
             case .tryOn: Color(hex: "#4A4745")
+            case .tryFaves: TryFavesStyle.canvas
             }
             return (entry.id, color)
         })
@@ -1619,6 +1514,22 @@ struct HomePage: View {
             colorsByEntryID: feedBackdropColors,
             utilityEntryID: utilityStoryID
         )
+    }
+
+    private func completeGiftGuideCreation(_ brief: GiftGuideBrief) {
+        GiftGuideBriefStore.shared.save(brief)
+        showsGiftGuideCreation = false
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(320))
+            guard let story = feedPlan.stories.first(where: {
+                $0.id == HypothesisShelfCatalog.giftGuideStoryID
+            }) ?? HypothesisShelfCatalog.stories.first(where: {
+                $0.id == HypothesisShelfCatalog.giftGuideStoryID
+            }) else { return }
+            coordinator.navigateToPage(0)
+            openTopic(for: story)
+        }
     }
 
     /// Resolves a For You story to its canonical topic. An exact lead-story
@@ -1635,6 +1546,13 @@ struct HomePage: View {
                     giftRecipientName: "Nari"
                 )
             )
+            return
+        }
+
+        if story.id.hasPrefix("custom-feed-") {
+            coordinator.resetScrollState()
+            expandingStoryID = story.id
+            coordinator.pushRoute(.customStory(story: story, sourceId: story.id))
             return
         }
 
@@ -1701,6 +1619,12 @@ struct HomePage: View {
                 withAnimation(.easeOut(duration: 0.18)) {
                     showsBuyerSwitcher = true
                 }
+            },
+            onAddFeed: {
+                showsFeedCreator = true
+            },
+            onManageFeeds: {
+                showsFeedManager = true
             }
         )
         .background(alignment: .top) {
@@ -1782,7 +1706,7 @@ struct HomePage: View {
         }
     }
 
-    private func selectTopic(_ topic: BuyerFeedTopic) {
+    func selectTopic(_ topic: BuyerFeedTopic) {
         guard selectedTopicID != topic.id || focusedStoryID != nil else { return }
         HapticFeedback.light.fire()
         coordinator.resetScrollState()
@@ -1848,9 +1772,20 @@ struct HomePage: View {
         if topicID == "for-you" {
             feedChromeIsInverted = false
             utilityRailExpansion.reset()
-            let targetID = buyerPreview.selected.showsUtilityShelf
+            let targetID: String?
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-openSuggestedCollections") {
+                targetID = "suggested-collections"
+            } else {
+                targetID = buyerPreview.selected.showsUtilityShelf
+                    ? utilityStoryID
+                    : feedEntries.first?.id
+            }
+#else
+            targetID = buyerPreview.selected.showsUtilityShelf
                 ? utilityStoryID
                 : feedEntries.first?.id
+#endif
             feedScrollState.positionID = targetID
             feedBackdropState.entryID = targetID
             feedChromeTransition.progress = targetID == utilityStoryID ? 0 : 1

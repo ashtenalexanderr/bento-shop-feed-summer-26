@@ -14,6 +14,9 @@ struct GiftGuidePersonalizationContext {
 /// steering dock so every control visibly transforms one coherent page.
 @Observable
 final class GiftGuidePrototypeState {
+    var recipientName = "Leon"
+    var occasion = "Just because"
+    var interests: [GiftGuideInterest] = [.outdoors, .games, .making]
     var showsTuning = false
     var showsVoiceMode = false
     var age = 10.0
@@ -35,10 +38,24 @@ final class GiftGuidePrototypeState {
     var deckIndex = 0
 
     init(
+        brief: GiftGuideBrief? = nil,
         personalization: GiftGuidePersonalizationContext? = nil,
         adultRecipient: Bool = false
     ) {
+        if let brief {
+            recipientName = brief.recipientName
+            occasion = brief.occasion
+            interests = brief.interests
+            setting = brief.interests.contains(.outdoors) ? .outdoors : .both
+            intent = brief.interests.contains(.surprises) ? .surprise : .fun
+            settingIsConfirmed = true
+            intentIsConfirmed = true
+            appliedNote = "\(brief.occasion) · \(brief.interests.prefix(3).map(\.title).joined(separator: ", "))"
+        }
+
         if adultRecipient {
+            recipientName = "Nari"
+            interests = []
             setting = .indoors
             settingIsConfirmed = false
         }
@@ -84,8 +101,8 @@ struct GiftGuideRecipient {
 
     static let leon = GiftGuideRecipient(name: "Leon")
 
-    var usesAge: Bool { name.caseInsensitiveCompare("Leon") == .orderedSame }
     var isNari: Bool { name.caseInsensitiveCompare("Nari") == .orderedSame }
+    var usesAge: Bool { !isNari }
     var notePlaceholder: String {
         usesAge
             ? "Dinosaurs, making things, camping…"
@@ -227,6 +244,14 @@ struct GiftGuidePrototypeContent: View {
     private var withinBudget: [ResolvedStoryProduct] {
         let matches = rankedProducts.filter { price(of: $0) <= budget }
         return matches.count >= 2 ? matches : rankedProducts
+    }
+
+    private var settingSectionTitle: String {
+        switch setting {
+        case .indoors: "For \(state.recipientName)’s world indoors"
+        case .both: "For wherever the day goes"
+        case .outdoors: "For \(state.recipientName)’s next adventure"
+        }
     }
 
     private var sharedActivityProducts: [ResolvedStoryProduct] {
@@ -371,7 +396,7 @@ struct GiftGuidePrototypeContent: View {
                 productDeck
 
                 productRail(
-                    title: setting.sectionTitle(for: recipient.name),
+                    title: settingSectionTitle,
                     subtitle: setting.sectionSubtitle,
                     products: rankedProducts
                 )
@@ -415,6 +440,7 @@ struct GiftGuidePrototypeContent: View {
             set: { showsTuning = $0 }
         )) {
             GiftGuideTuningSheet(
+                recipientName: state.recipientName,
                 age: Binding(get: { age }, set: { age = $0 }),
                 setting: Binding(get: { setting }, set: { setting = $0 }),
                 budget: Binding(get: { budget }, set: { budget = $0 }),
@@ -590,7 +616,7 @@ struct GiftGuidePrototypeContent: View {
             return "Archive fashion"
         }
         return switch item.merchant.id {
-        case "tin-can-kids": "Keep \(recipient.name) connected"
+        case "tin-can-kids": "Keep \(state.recipientName) connected"
         case "pollen-robotics": "Build and code"
         case "nocs": "Explore outside"
         default: "Make something"
@@ -600,8 +626,10 @@ struct GiftGuidePrototypeContent: View {
     private var productDeck: some View {
         VStack(alignment: .leading, spacing: GravitySpacing.space16) {
             sectionHeading(
-                "Tune these picks",
-                subtitle: "Swipe left to pass · right to see more like it"
+                recipient.isNari ? "Tune these picks" : "Swipe through ideas",
+                subtitle: recipient.isNari
+                    ? "Swipe left to pass · right to see more like it"
+                    : "A quick stack of gifts picked for \(state.recipientName)"
             )
 
             ZStack {
@@ -889,9 +917,12 @@ struct GiftGuidePrototypeContent: View {
                 Image(systemName: "text.bubble")
                     .font(.system(size: 18, weight: .semibold))
                 VStack(alignment: .leading, spacing: GravitySpacing.space2) {
-                    Text(recipient.usesAge ? "Tell Shop more about \(recipient.name)" : "Fine-tune these picks")
+                    Text(recipient.usesAge ? "Tell Shop more about \(state.recipientName)" : "Fine-tune these picks")
                         .font(GravityFont.bold.fixedFont(size: 16))
-                    Text(refinementSubtitle)
+                    Text(recipient.usesAge
+                        ? (appliedNote.isEmpty ? "What is \(state.recipientName) into lately?" : "“\(appliedNote)”")
+                        : refinementSubtitle
+                    )
                         .font(GravityFont.regular.fixedFont(size: 13))
                         .foregroundStyle(.white.opacity(0.62))
                         .lineLimit(1)
@@ -994,6 +1025,11 @@ struct GiftGuidePrototypeContent: View {
                 value += 36
             }
         }
+        if recipient.usesAge {
+            for interest in state.interests where interestKeywords(interest).contains(where: text.contains) {
+                value += 28
+            }
+        }
         switch intent {
         case .fun where ["puzzle", "neon", "comic", "robot"].contains(where: text.contains): value += 34
         case .useful where ["watch", "binocular", "clock", "communication", "screen-free"].contains(where: text.contains): value += 34
@@ -1050,6 +1086,23 @@ struct GiftGuidePrototypeContent: View {
         return "independent"
     }
 
+    private func interestKeywords(_ interest: GiftGuideInterest) -> [String] {
+        switch interest {
+        case .outdoors: ["outdoor", "field", "binocular", "adventure"]
+        case .games: ["game", "puzzle", "play", "robot"]
+        case .making: ["build", "craft", "coding", "robot"]
+        case .sports: ["sport", "ball", "run", "skate"]
+        case .music: ["music", "audio", "speaker", "headphone"]
+        case .style: ["shirt", "shoe", "watch", "style"]
+        case .food: ["food", "cook", "chocolate", "kitchen"]
+        case .books: ["book", "comic", "story", "manual"]
+        case .animals: ["animal", "pet", "dog", "cat"]
+        case .travel: ["travel", "bag", "trip", "portable"]
+        case .home: ["home", "design", "lamp", "clock"]
+        case .surprises: ["neon", "ring", "robot", "unexpected"]
+        }
+    }
+
     private func activityScore(_ item: ResolvedStoryProduct) -> Int {
         let text = item.product.title.lowercased()
         return ["field", "binocular", "craft", "puzzle", "comic"]
@@ -1083,7 +1136,7 @@ struct GiftGuidePrototypeContent: View {
     private func applyTuning() {
         appliedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         showsTuning = false
-        registerUpdate("Rebuilt \(recipient.name)’s guide from your brief")
+        registerUpdate("Rebuilt \(state.recipientName)’s guide from your brief")
     }
 }
 
@@ -1099,13 +1152,13 @@ struct GiftGuideTopicFilterBar: View {
                         Button("Age \(age)") {
                             state.age = Double(age)
                             state.ageIsConfirmed = true
-                            state.registerUpdate("Updated for \(recipient.name) at age \(age)")
+                            state.registerUpdate("Updated for \(state.recipientName) at age \(age)")
                         }
                     }
                 } label: {
                     filterPill("Age \(Int(state.age))", width: 58)
                 }
-                .accessibilityLabel("\(recipient.name)’s age")
+                .accessibilityLabel("\(state.recipientName)’s age")
             }
 
             Menu {
@@ -1202,7 +1255,7 @@ struct GiftGuideSteeringDock: View {
         .accessibilityLabel("Voice or chat with Shop")
         .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56)
         .sheet(isPresented: $state.showsVoiceMode) {
-            GiftGuideVoiceMode(recipient: recipient)
+            GiftGuideVoiceMode(recipientName: state.recipientName, recipient: recipient)
                 .presentationDetents([.height(300)])
                 .presentationDragIndicator(.visible)
         }
@@ -1210,8 +1263,8 @@ struct GiftGuideSteeringDock: View {
 }
 
 private struct GiftGuideVoiceMode: View {
+    let recipientName: String
     let recipient: GiftGuideRecipient
-
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -1226,7 +1279,7 @@ private struct GiftGuideVoiceMode: View {
             }
 
             VStack(spacing: GravitySpacing.space4) {
-                Text("Tell Shop about \(recipient.name)")
+                Text("Tell Shop about \(recipientName)")
                     .font(GravityFont.expressiveBold.fixedFont(size: 22))
                 Text("Try “\(recipient.voiceExample)”")
                     .font(GravityFont.regular.fixedFont(size: 14))
@@ -1299,6 +1352,7 @@ enum GiftIntent: String, CaseIterable, Identifiable {
 }
 
 private struct GiftGuideTuningSheet: View {
+    let recipientName: String
     @Binding var age: Double
     @Binding var setting: GiftSetting
     @Binding var budget: Double
@@ -1312,14 +1366,14 @@ private struct GiftGuideTuningSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     if recipient.usesAge {
-                        dial(title: "How old is \(recipient.name)?", value: "\(Int(age))") {
+                        dial(title: "How old is \(recipientName)?", value: "\(Int(age))") {
                             Slider(value: $age, in: 5...17, step: 1)
                                 .tint(Color(hex: "#7455A2"))
                         }
                     }
 
                     VStack(alignment: .leading, spacing: GravitySpacing.space10) {
-                        Text("Where does \(recipient.name) come alive?")
+                        Text("Where does \(recipientName) come alive?")
                             .font(GravityFont.bold.fixedFont(size: 17))
                         Picker("Setting", selection: $setting) {
                             ForEach(GiftSetting.allCases) { Text($0.label).tag($0) }
@@ -1363,7 +1417,7 @@ private struct GiftGuideTuningSheet: View {
                 }
                 .padding(GravitySpacing.space20)
             }
-            .navigationTitle("Tune \(recipient.name)’s gift guide")
+            .navigationTitle("Tune \(recipientName)’s gift guide")
             .navigationBarTitleDisplayMode(.inline)
         }
     }

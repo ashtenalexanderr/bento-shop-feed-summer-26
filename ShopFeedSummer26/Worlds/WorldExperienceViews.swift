@@ -12,7 +12,7 @@ struct WorldExperienceContent: View {
         case .tryOn:
             TryOnWorldView(session: session, products: products)
         case .spatial:
-            SpatialWorldView(session: session, products: products)
+            EmptyView()
         case .mission:
             MissionWorldView(session: session, products: products)
         case .merchandised, .gifting:
@@ -190,183 +190,448 @@ private struct TryOnWorldView: View {
     }
 }
 
-private struct SpatialWorldView: View {
-    @Bindable var session: WorldSession
-    let products: [ResolvedStoryProduct]
-    @Environment(NavigationCoordinator.self) private var coordinator
-
-    private var selected: ResolvedStoryProduct? {
-        products.first(where: { $0.id == session.state.selectedProductID }) ?? products.first
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            worldIntro(
-                title: "Build the room in place",
-                subtitle: "Swap pieces against the same warm, sculptural direction.",
-                session: session
-            )
-
-            ZStack(alignment: .bottomLeading) {
-                Image("topic-warm-lighting-hero")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 490)
-                    .clipped()
-
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.76)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-
-                if let selected {
-                    HStack(spacing: GravitySpacing.space12) {
-                        ProductImageView(product: selected.product, merchant: selected.merchant)
-                            .frame(width: 96, height: 96)
-                            .clipped()
-                            .background(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r20, style: .continuous))
-                        VStack(alignment: .leading, spacing: GravitySpacing.space4) {
-                            Text("In the room")
-                                .font(GravityFont.medium.fixedFont(size: 12))
-                                .foregroundStyle(.white.opacity(0.66))
-                            Text(selected.product.title)
-                                .font(GravityFont.bold.fixedFont(size: 18))
-                                .lineLimit(2)
-                            Text(formatPrice(selected.product.price))
-                                .font(GravityFont.semiBold.fixedFont(size: 13))
-                        }
-                        Spacer()
-                    }
-                    .foregroundStyle(.white)
-                    .padding(GravitySpacing.space16)
-                }
-            }
-            .frame(height: 490)
-            .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r28, style: .continuous))
-            .padding(.horizontal, GravitySpacing.space12)
-
-            VStack(alignment: .leading, spacing: GravitySpacing.space10) {
-                Text("Swap what’s in the room")
-                    .font(GravityFont.expressiveBold.fixedFont(size: 21))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, GravitySpacing.space12)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: GravitySpacing.space8) {
-                        ForEach(products) { item in
-                            Button {
-                                HapticFeedback.light.fire()
-                                session.send(.selectProduct(item.id))
-                            } label: {
-                                VStack(alignment: .leading, spacing: GravitySpacing.space6) {
-                                    ProductImageView(product: item.product, merchant: item.merchant)
-                                        .frame(width: 132, height: 132)
-                                        .clipped()
-                                    Text(item.product.title)
-                                        .font(GravityFont.bold.fixedFont(size: 13))
-                                        .foregroundStyle(.black)
-                                        .lineLimit(1)
-                                        .padding(.horizontal, GravitySpacing.space8)
-                                }
-                                .padding(.bottom, GravitySpacing.space8)
-                                .background(.white, in: RoundedRectangle(cornerRadius: GravityRadius.r20, style: .continuous))
-                            }
-                            .buttonStyle(PressScaleButtonStyle())
-                        }
-                    }
-                    .padding(.horizontal, GravitySpacing.space12)
-                }
-            }
-        }
-        .padding(.bottom, 140)
-    }
+private struct MissionStepDefinition: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let guidance: String
+    let symbol: String
+    let keywords: Set<String>
 }
 
 private struct MissionWorldView: View {
     @Bindable var session: WorldSession
     let products: [ResolvedStoryProduct]
 
-    private let steps = [
-        ("equipment", "Equipment", "Skis, boots, and bindings"),
-        ("layers", "Mountain layers", "Weather-ready warmth"),
-        ("travel", "Travel setup", "What gets there with you"),
-        ("recovery", "After the mountain", "Comfort for the end of the day"),
+    @Environment(NavigationCoordinator.self) private var coordinator
+    @State private var expandedStepID = "equipment"
+
+    private let steps: [MissionStepDefinition] = [
+        .init(
+            id: "equipment",
+            title: "Hard gear",
+            subtitle: "Skis, boots, bindings, and poles",
+            guidance: "Decide what travels with you and what is easier to rent on arrival.",
+            symbol: "figure.skiing.downhill",
+            keywords: ["ski", "skis", "boot", "boots", "binding", "bindings", "pole", "poles"]
+        ),
+        .init(
+            id: "layers",
+            title: "Mountain layers",
+            subtitle: "Weather-ready warmth",
+            guidance: "Build one adaptable system rather than packing for every forecast.",
+            symbol: "cloud.snow",
+            keywords: ["jacket", "shell", "fleece", "hoodie", "parka", "glove", "goggle", "helmet", "sweater"]
+        ),
+        .init(
+            id: "travel",
+            title: "Travel setup",
+            subtitle: "What gets there with you",
+            guidance: "Keep essentials together and leave room for bulky mountain gear.",
+            symbol: "airplane",
+            keywords: ["backpack", "duffel", "luggage", "carry", "bag"]
+        ),
+        .init(
+            id: "recovery",
+            title: "After the mountain",
+            subtitle: "Comfort for the end of the day",
+            guidance: "Choose one easy recovery option instead of another full outfit.",
+            symbol: "sparkles",
+            keywords: ["recovery", "clog", "sandal", "slipper", "sock", "mule"]
+        ),
     ]
 
+    private var completedCount: Int {
+        steps.filter { session.state.missionDecisions[$0.id] != nil }.count
+    }
+
+    private var isReady: Bool { completedCount == steps.count }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
+        VStack(alignment: .leading, spacing: GravitySpacing.space24) {
             worldIntro(
                 title: "Get ready without overpacking",
                 subtitle: "A working plan for the mountain, travel, and everything after.",
                 session: session
             )
 
-            VStack(alignment: .leading, spacing: GravitySpacing.space12) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Weekend readiness")
-                        .font(GravityFont.expressiveBold.fixedFont(size: 22))
-                    Spacer()
-                    Text("\(session.state.completedMissionSteps.count) of \(steps.count)")
-                        .font(GravityFont.semiBold.fixedFont(size: 13))
-                        .foregroundStyle(.white.opacity(0.58))
-                }
+            tripContext
+            readinessSummary
 
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.white.opacity(0.12))
-                        Capsule()
-                            .fill(.white)
-                            .frame(width: geometry.size.width * CGFloat(session.state.completedMissionSteps.count) / CGFloat(steps.count))
-                    }
-                }
-                .frame(height: 7)
-
-                ForEach(steps, id: \.0) { step in
-                    Button {
-                        HapticFeedback.light.fire()
-                        session.send(.toggleMissionStep(step.0))
-                    } label: {
-                        HStack(spacing: GravitySpacing.space12) {
-                            Image(systemName: session.state.completedMissionSteps.contains(step.0) ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 22, weight: .semibold))
-                            VStack(alignment: .leading, spacing: GravitySpacing.space2) {
-                                Text(step.1)
-                                    .font(GravityFont.bold.fixedFont(size: 16))
-                                Text(step.2)
-                                    .font(GravityFont.regular.fixedFont(size: 12))
-                                    .foregroundStyle(.white.opacity(0.58))
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.44))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(GravitySpacing.space12)
-                        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: GravityRadius.r20, style: .continuous))
-                    }
-                    .buttonStyle(PressScaleButtonStyle())
+            VStack(spacing: GravitySpacing.space8) {
+                ForEach(steps) { step in
+                    missionStep(step)
                 }
             }
             .padding(.horizontal, GravitySpacing.space12)
 
-            VStack(alignment: .leading, spacing: GravitySpacing.space12) {
-                Text("Start with the hard gear")
-                    .font(GravityFont.expressiveBold.fixedFont(size: 21))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, GravitySpacing.space12)
+            missionPlan
+        }
+        .padding(.bottom, 140)
+        .animation(SpringPreset.smooth, value: expandedStepID)
+        .animation(SpringPreset.smooth, value: session.state.missionDecisions)
+    }
+
+    private var tripContext: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: GravitySpacing.space8) {
+                contextMenu(
+                    symbol: "mountain.2.fill",
+                    factKey: "mountain",
+                    fallback: "Whistler",
+                    choices: ["Whistler", "Tahoe", "Aspen"]
+                )
+                contextMenu(
+                    symbol: "calendar",
+                    factKey: "dates",
+                    fallback: "Feb 20–23",
+                    choices: ["Feb 20–23", "Mar 6–9", "Mar 13–16"]
+                )
+                contextMenu(
+                    symbol: "figure.skiing.downhill",
+                    factKey: "ability",
+                    fallback: "Advanced",
+                    choices: ["Intermediate", "Advanced", "Expert"]
+                )
+                contextMenu(
+                    symbol: "airplane",
+                    factKey: "travel",
+                    fallback: "Flying",
+                    choices: ["Flying", "Driving"]
+                )
+            }
+            .padding(.horizontal, GravitySpacing.space12)
+        }
+    }
+
+    private func contextMenu(
+        symbol: String,
+        factKey: String,
+        fallback: String,
+        choices: [String]
+    ) -> some View {
+        Menu {
+            ForEach(choices, id: \.self) { choice in
+                Button(choice) {
+                    session.send(.setFact(WorldFact(
+                        key: factKey,
+                        value: choice,
+                        source: .stated,
+                        scope: factKey == "ability" ? .subject : .local
+                    )))
+                }
+            }
+        } label: {
+            HStack(spacing: GravitySpacing.space6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(session.context.value(for: factKey) ?? fallback)
+                    .font(GravityFont.semiBold.fixedFont(size: 13))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.50))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, GravitySpacing.space12)
+            .frame(height: GravitySpacing.space36)
+            .background(.white.opacity(0.10), in: Capsule())
+            .overlay { Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 0.5) }
+        }
+    }
+
+    private var readinessSummary: some View {
+        VStack(alignment: .leading, spacing: GravitySpacing.space12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: GravitySpacing.space2) {
+                    Text(isReady ? "Weekend ready" : "Weekend readiness")
+                        .font(GravityFont.expressiveBold.fixedFont(size: 22))
+                    Text(isReady
+                        ? "Your gear and packing decisions are covered."
+                        : "\(steps.count - completedCount) decisions left")
+                        .font(GravityFont.regular.fixedFont(size: 13))
+                        .foregroundStyle(.white.opacity(0.60))
+                }
+                Spacer()
+                Text("\(completedCount) of \(steps.count)")
+                    .font(GravityFont.semiBold.fixedFont(size: 13))
+                    .foregroundStyle(.white.opacity(0.62))
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.12))
+                    Capsule()
+                        .fill(.white)
+                        .frame(
+                            width: geometry.size.width
+                                * CGFloat(completedCount) / CGFloat(steps.count)
+                        )
+                }
+            }
+            .frame(height: 7)
+        }
+        .padding(GravitySpacing.space16)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: GravityRadius.r20, style: .continuous))
+        .padding(.horizontal, GravitySpacing.space12)
+    }
+
+    private func missionStep(_ step: MissionStepDefinition) -> some View {
+        let isExpanded = expandedStepID == step.id
+        let decision = session.state.missionDecisions[step.id]
+
+        return VStack(spacing: 0) {
+            Button {
+                HapticFeedback.light.fire()
+                expandedStepID = isExpanded ? "" : step.id
+            } label: {
+                HStack(spacing: GravitySpacing.space12) {
+                    Image(systemName: decision == nil ? step.symbol : "checkmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(decision == nil ? .white : .black)
+                        .frame(width: GravitySpacing.space36, height: GravitySpacing.space36)
+                        .background(
+                            decision == nil ? .white.opacity(0.10) : .white,
+                            in: Circle()
+                        )
+
+                    VStack(alignment: .leading, spacing: GravitySpacing.space2) {
+                        Text(step.title)
+                            .font(GravityFont.bold.fixedFont(size: 16))
+                        Text(decision.map(decisionLabel) ?? step.subtitle)
+                            .font(GravityFont.regular.fixedFont(size: 12))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.44))
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .foregroundStyle(.white)
+                .padding(GravitySpacing.space12)
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                stepEditor(step)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(.white.opacity(isExpanded ? 0.10 : 0.07), in: RoundedRectangle(cornerRadius: GravityRadius.r20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: GravityRadius.r20, style: .continuous)
+                .strokeBorder(.white.opacity(isExpanded ? 0.16 : 0.08), lineWidth: 0.5)
+        }
+    }
+
+    private func stepEditor(_ step: MissionStepDefinition) -> some View {
+        let recommendations = recommendations(for: step)
+        let selected = selectedProduct(for: step, recommendations: recommendations)
+
+        return VStack(alignment: .leading, spacing: GravitySpacing.space12) {
+            Divider().overlay(.white.opacity(0.12))
+            Text(step.guidance)
+                .font(GravityFont.regular.fixedFont(size: 13))
+                .foregroundStyle(.white.opacity(0.66))
+                .padding(.horizontal, GravitySpacing.space12)
+
+            if !recommendations.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: GravitySpacing.space8) {
-                        ForEach(products) { item in
-                            WorldProductTile(item: item, session: session)
+                        ForEach(recommendations) { item in
+                            missionProductTile(
+                                item,
+                                isSelected: selected?.id == item.id,
+                                stepID: step.id
+                            )
                         }
                     }
                     .padding(.horizontal, GravitySpacing.space12)
                 }
+
+                if let selected {
+                    Button {
+                        session.send(.viewProduct(selected.id))
+                        coordinator.pushRoute(.product(
+                            merchantId: selected.merchant.id,
+                            productId: selected.product.id
+                        ))
+                    } label: {
+                        HStack {
+                            Text(selected.product.title)
+                                .font(GravityFont.semiBold.fixedFont(size: 13))
+                                .lineLimit(1)
+                            Spacer()
+                            Text(formatPrice(selected.product.price))
+                                .font(GravityFont.medium.fixedFont(size: 12))
+                                .foregroundStyle(.white.opacity(0.62))
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, GravitySpacing.space12)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            dispositionPicker(for: step, selected: selected)
+                .padding(.horizontal, GravitySpacing.space12)
+                .padding(.bottom, GravitySpacing.space12)
+        }
+    }
+
+    private func missionProductTile(
+        _ item: ResolvedStoryProduct,
+        isSelected: Bool,
+        stepID: String
+    ) -> some View {
+        Button {
+            HapticFeedback.selection.fire()
+            session.send(.selectMissionProduct(stepID: stepID, productID: item.id))
+        } label: {
+            ProductImageView(product: item.product, merchant: item.merchant)
+                .frame(width: 104, height: 104)
+                .background(.white)
+                .clipShape(RoundedRectangle(cornerRadius: GravityRadius.r16, style: .continuous))
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(isSelected ? .black : .white, .white)
+                        .padding(GravitySpacing.space8)
+                        .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: GravityRadius.r16, style: .continuous)
+                        .strokeBorder(.white.opacity(isSelected ? 0.90 : 0.16), lineWidth: isSelected ? 2 : 0.5)
+                }
+        }
+        .buttonStyle(PressScaleButtonStyle())
+    }
+
+    private func dispositionPicker(
+        for step: MissionStepDefinition,
+        selected: ResolvedStoryProduct?
+    ) -> some View {
+        HStack(spacing: GravitySpacing.space6) {
+            ForEach(MissionDisposition.allCases, id: \.self) { disposition in
+                let isSelected = session.state.missionDecisions[step.id]?.disposition == disposition
+                Button {
+                    HapticFeedback.medium.fire()
+                    let productID = disposition == .owned ? nil : selected?.id
+                    session.send(.setMissionDecision(MissionDecision(
+                        stepID: step.id,
+                        disposition: disposition,
+                        productID: productID
+                    )))
+                } label: {
+                    Text(disposition.label)
+                        .font(GravityFont.semiBold.fixedFont(size: 13))
+                        .foregroundStyle(isSelected ? .black : .white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: GravitySpacing.space36)
+                        .background(isSelected ? .white : .white.opacity(0.09), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(disposition != .owned && selected == nil)
+                .opacity(disposition != .owned && selected == nil ? 0.38 : 1)
             }
         }
-        .padding(.bottom, 140)
+    }
+
+    @ViewBuilder
+    private var missionPlan: some View {
+        if !session.state.missionDecisions.isEmpty {
+            VStack(alignment: .leading, spacing: GravitySpacing.space12) {
+                Text(isReady ? "Your packing plan" : "Plan so far")
+                    .font(GravityFont.expressiveBold.fixedFont(size: 21))
+
+                ForEach(steps.filter { session.state.missionDecisions[$0.id] != nil }) { step in
+                    if let decision = session.state.missionDecisions[step.id] {
+                        HStack(spacing: GravitySpacing.space10) {
+                            Image(systemName: decision.disposition == .owned ? "checkmark" : decision.disposition == .rent ? "arrow.triangle.2.circlepath" : "bag")
+                                .font(.system(size: 13, weight: .bold))
+                                .frame(width: 28, height: 28)
+                                .background(.white.opacity(0.10), in: Circle())
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(step.title)
+                                    .font(GravityFont.semiBold.fixedFont(size: 14))
+                                Text(decisionLabel(decision))
+                                    .font(GravityFont.regular.fixedFont(size: 12))
+                                    .foregroundStyle(.white.opacity(0.58))
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Button {
+                                session.send(.clearMissionDecision(step.id))
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.54))
+                                    .frame(width: 28, height: 28)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(GravitySpacing.space16)
+            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: GravityRadius.r20, style: .continuous))
+            .padding(.horizontal, GravitySpacing.space12)
+        }
+    }
+
+    private func selectedProduct(
+        for step: MissionStepDefinition,
+        recommendations: [ResolvedStoryProduct]
+    ) -> ResolvedStoryProduct? {
+        let selectedID = session.state.missionSelectedProductIDs[step.id]
+        return recommendations.first { $0.id == selectedID } ?? recommendations.first
+    }
+
+    private func decisionLabel(_ decision: MissionDecision) -> String {
+        guard let productID = decision.productID,
+              let product = allCatalogProducts.first(where: { $0.id == productID }) else {
+            return decision.disposition == .owned ? "Already covered" : decision.disposition.label
+        }
+        return "\(decision.disposition.label) · \(product.product.title)"
+    }
+
+    private func recommendations(for step: MissionStepDefinition) -> [ResolvedStoryProduct] {
+        var seen = Set<String>()
+        let source = step.id == "equipment"
+            ? Array(relatedSkiProducts.prefix(3)) + products
+            : allCatalogProducts.filter { item in
+                !searchableTokens(for: item).isDisjoint(with: step.keywords)
+            }
+        return source.filter { seen.insert($0.id).inserted }.prefix(8).map { $0 }
+    }
+
+    private var relatedSkiProducts: [ResolvedStoryProduct] {
+        guard let story = PersonalizedFeedCatalog.current.stories.first(where: {
+            $0.id == "shelf-mikhail-6-premium-all-mountain-skis"
+        }) else { return [] }
+        return story.resolvedProducts(from: SampleMerchant.all)
+    }
+
+    private var allCatalogProducts: [ResolvedStoryProduct] {
+        SampleMerchant.all.flatMap { merchant in
+            merchant.products.map { ResolvedStoryProduct(merchant: merchant, product: $0) }
+        }
+    }
+
+    private func searchableTokens(for item: ResolvedStoryProduct) -> Set<String> {
+        Set(
+            ([item.product.title, item.product.productType ?? ""] + item.product.tags)
+                .joined(separator: " ")
+                .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+                .lowercased()
+                .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+                .map(String.init)
+        )
     }
 }
 
