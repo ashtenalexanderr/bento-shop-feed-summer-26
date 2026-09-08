@@ -394,8 +394,10 @@ private final class SharedVideoPlaybackSession {
 
     private func refreshPlayback() {
         if clients.values.contains(true) {
-            player.cancelPendingPrerolls()
-            isPrerolling = false
+            if isPrerolling {
+                player.cancelPendingPrerolls()
+                isPrerolling = false
+            }
             isPrepared = true
             player.playImmediately(atRate: 1)
         } else {
@@ -408,7 +410,10 @@ private final class SharedVideoPlaybackSession {
     /// Decode one frame for those cells so focus only toggles playback instead
     /// of beginning asset preparation after the snap has already completed.
     private func prepareFirstFrame() {
-        guard !isPrepared, !isPrerolling, player.currentItem != nil else { return }
+        guard !isPrepared,
+              !isPrerolling,
+              player.status == .readyToPlay,
+              player.currentItem?.status == .readyToPlay else { return }
         isPrerolling = true
         player.preroll(atRate: 1) { [weak self] finished in
             Task { @MainActor in
