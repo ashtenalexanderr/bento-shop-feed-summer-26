@@ -120,6 +120,11 @@ struct HomePage: View {
         isHolidayDestination || isEvergreenUtilityDestination
     }
 
+    private var activeFeedEntryPrefersDarkNavigationText: Bool {
+        let activeID = visibleStoryID ?? feedScrollState.positionID
+        return feedEntries.first { $0.id == activeID }?.prefersDarkNavigationText == true
+    }
+
     /// An empty new value migrates the original on/off prototype preference.
     private var seasonalPlacement: SeasonalPlacement {
         SeasonalPlacement(rawValue: seasonalPlacementRawValue)
@@ -1521,6 +1526,7 @@ struct HomePage: View {
                 || selectedTopicID == "holiday-sale"
                 || selectedTopicID == "gift-guides",
             usesFeedBackdropStyle: !isStaticUtilityDestination
+                && !activeFeedEntryPrefersDarkNavigationText
                 && (selectedTopicID != "for-you" || feedChromeIsInverted),
             usesHolidayPillStyle: seasonalPlacement == .header,
             selectionNamespace: topicSelectionNamespace,

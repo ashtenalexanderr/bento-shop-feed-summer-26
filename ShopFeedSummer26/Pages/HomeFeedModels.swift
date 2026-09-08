@@ -79,6 +79,14 @@ extension FeedStory {
 }
 
 extension FeedEntry {
+    /// Full-height cards whose authored top surface is light enough to require
+    /// dark navigation labels while the card is snapped behind the topic rail.
+    var prefersDarkNavigationText: Bool {
+        if case .tryOn = self { return true }
+        guard case let .story(story) = self else { return false }
+        return story.id == WorldPrototypeCatalog.canvasID
+    }
+
     var usesBottomAnchoredWorldChrome: Bool {
         if case .tryOn = self { return true }
         if case .tryFaves = self { return true }
