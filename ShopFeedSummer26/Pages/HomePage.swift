@@ -121,8 +121,27 @@ struct HomePage: View {
     }
 
     private var activeFeedEntryPrefersDarkNavigationText: Bool {
-        let activeID = visibleStoryID ?? feedScrollState.positionID
-        return feedEntries.first { $0.id == activeID }?.prefersDarkNavigationText == true
+        // Backdrop and scroll-position state update during travel; the
+        // committed visible ID intentionally lags until scrolling settles.
+        // Prefer those live IDs so navigation contrast changes with the card
+        // actually beneath the rail rather than the previous snap target.
+        let liveIDs = [
+            feedBackdropState.entryID,
+            feedScrollState.positionID,
+            visibleStoryID,
+        ]
+        for id in liveIDs.compactMap({ $0 }) {
+            if let entry = feedEntries.first(where: { $0.id == id }) {
+                return entry.prefersDarkNavigationText
+            }
+        }
+
+        // The utility shelf has no FeedEntry. During its takeover, the first
+        // feed card is the surface physically behind navigation.
+        if feedChromeIsInverted {
+            return feedEntries.first?.prefersDarkNavigationText == true
+        }
+        return false
     }
 
     /// An empty new value migrates the original on/off prototype preference.
@@ -1689,7 +1708,9 @@ struct HomePage: View {
             utilityRailExpansion.reset()
             let targetID: String?
 #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-openSuggestedCollections") {
+            if ProcessInfo.processInfo.arguments.contains("-openCanvas") {
+                targetID = WorldPrototypeCatalog.canvasID
+            } else if ProcessInfo.processInfo.arguments.contains("-openSuggestedCollections") {
                 targetID = "suggested-collections"
             } else {
                 targetID = buyerPreview.selected.showsUtilityShelf
